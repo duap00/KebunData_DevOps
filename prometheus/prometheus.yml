@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'oracle-gateway'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          device: 'oracle-gateway'
+          location: 'cloud'
+
+  - job_name: 'cm4-office'
+    static_configs:
+      - targets:
+          - 'REPLACE_WITH_CM4_IP:9100'
+          - 'REPLACE_WITH_CM4_IP:9101'
+        labels:
+          device: 'cm4-office'
+          location: 'office'
+          ram: '8gb'
