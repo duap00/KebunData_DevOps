@@ -1,0 +1,20 @@
+name: Test Oracle Connection
+
+on:
+  workflow_dispatch: # This adds a "Run Button" so you can test manually
+
+jobs:
+  check-server:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test SSH Connection
+        uses: appleboy/ssh-action@master
+        with:
+          host: 84.235.251.78
+          username: ubuntu      # Change this if your Oracle user is 'opc'
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          script: |
+            echo "✅ Connection Successful!"
+            echo "Checking Docker Status..."
+            sudo docker ps
+            echo "Server Date: $(date)"
