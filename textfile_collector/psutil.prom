@@ -1,6 +1,0 @@
-psutil_cpu_percent 0.0
-psutil_memory_percent 46.1
-psutil_disk_used_percent 9.9
-psutil_memory_available_bytes 538439680
-psutil_disk_free_bytes 43479187456
-psutil_collected_timestamp 1763350140
