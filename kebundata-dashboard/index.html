@@ -3,315 +3,426 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KebunData</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>KebunData Dashboard</title>
+    
+    <!-- 1. React & ReactDOM (Global CDN) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- 2. Babel (for JSX) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- 3. Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 4. Firebase Compat Libraries -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        kebun: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 800: '#166534', 900: '#14532d' }
+                    }
+                }
+            }
+        }
+    </script>
+
     <style>
-        :root {
-            --bg-color: #F4F7F6;
-            --card-bg: #FFFFFF;
-            --text-primary: #2C3E50;
-            --text-secondary: #7F8C8D;
-            --accent-primary: #588157; 
-            --accent-light: #A3B18A;
-            --radius: 16px;
-            --shadow: 0 4px 20px rgba(0,0,0,0.04);
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-primary);
-            font-family: 'Inter', sans-serif;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        /* --- Navigation --- */
-        .nav-bar {
-            width: 100%;
-            background: var(--card-bg);
-            padding: 15px 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: var(--shadow);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .brand {
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 700;
-            font-size: 1.2rem;
-            color: var(--accent-primary);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .brand img { height: 32px; width: auto; border-radius: 4px; }
-
-        .tabs { display: flex; gap: 10px; }
-
-        .tab-btn {
-            background: none; border: none; font-family: 'Inter', sans-serif;
-            font-size: 0.9rem; color: var(--text-secondary); cursor: pointer;
-            padding: 8px 16px; border-radius: 20px; transition: 0.3s; font-weight: 500;
-        }
-        .tab-btn:hover { color: var(--accent-primary); background: #F1F8F1; }
-        .tab-btn.active { background: var(--accent-primary); color: white; box-shadow: 0 4px 10px rgba(88, 129, 87, 0.2); }
-
-        /* --- Layout --- */
-        .main-container { width: 100%; max-width: 900px; padding: 40px 20px; }
-        .section { display: none; animation: fadeIn 0.4s ease; }
-        .section.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* --- EDITOR --- */
-        .editor-card {
-            background: var(--card-bg); border-radius: var(--radius); padding: 30px;
-            box-shadow: var(--shadow); margin-bottom: 40px; border: 1px solid rgba(0,0,0,0.05);
-        }
-        .editor-title { width: 100%; border: none; outline: none; font-size: 1.5rem; font-weight: 700; margin-bottom: 15px; }
-        .editor-body { width: 100%; border: none; outline: none; font-size: 1rem; color: #4A5568; min-height: 120px; resize: vertical; line-height: 1.6; }
-        .editor-tools { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #f0f0f0; }
-        
-        .ai-btn { background: linear-gradient(135deg, #e0f7fa 0%, #e8f5e9 100%); color: #2d6a4f; border: 1px solid #b7e4c7; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
-        .post-btn { background: var(--accent-primary); color: white; border: none; padding: 10px 24px; border-radius: 20px; font-weight: 600; cursor: pointer; }
-
-        /* --- FEED & SHARE BUTTONS --- */
-        .post-card {
-            background: var(--card-bg); padding: 25px; border-radius: var(--radius);
-            margin-bottom: 25px; box-shadow: var(--shadow); position: relative;
-            border-left: 4px solid var(--accent-primary);
-        }
-        .post-date { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #999; margin-bottom: 8px; display: block; }
-        .post-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 10px; }
-        .post-content { line-height: 1.6; color: #444; white-space: pre-line; margin-bottom: 20px; }
-
-        /* New Social Share Styling */
-        .share-row {
-            display: flex; gap: 10px; padding-top: 15px; border-top: 1px solid #f0f0f0;
-        }
-        .share-btn {
-            text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: 0.2s;
-        }
-        .share-x { background: #000; color: white; }
-        .share-threads { background: #1a1a1a; color: white; }
-        .share-fb { background: #1877F2; color: white; }
-        .share-btn:hover { opacity: 0.8; transform: translateY(-2px); }
-
-        /* --- DASHBOARD --- */
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
-        .dash-card { background: var(--card-bg); border-radius: var(--radius); padding: 25px; box-shadow: var(--shadow); }
-        .metric-big { font-size: 2.5rem; font-weight: 300; color: var(--text-primary); margin: 10px 0; }
-        .metric-label { font-size: 0.75rem; color: #999; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
-        .chart-container { grid-column: 1 / -1; background: white; padding: 20px; border-radius: var(--radius); box-shadow: var(--shadow); height: 300px; }
-
-        @media (max-width: 600px) {
-            .nav-bar { flex-direction: column; gap: 15px; padding: 15px; }
-            .grid { grid-template-columns: 1fr; }
-        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
-<body>
+<body class="bg-gray-50 text-gray-900">
+    <div id="root"></div>
 
-    <nav class="nav-bar">
-        <div class="brand">
-            <img src="logo.png" alt="Logo" onerror="this.style.display='none'">
-            KebunData
-        </div>
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('journal')">Journal</button>
-            <button class="tab-btn" onclick="switchTab('monitor')">Monitor</button>
-        </div>
-    </nav>
+    <script type="text/babel">
+        // --- ERROR HANDLING ---
+        window.onerror = function(message, source, lineno, colno, error) {
+            console.error(error);
+            // Don't overwrite body if it's just a warning, but helpful for debugging
+            return false; 
+        };
 
-    <div class="main-container">
+        const { useState, useEffect } = React;
 
-        <!-- JOURNAL TAB -->
-        <div id="journal" class="section active">
-            <div class="editor-card">
-                <input type="text" id="new-title" class="editor-title" placeholder="Title (e.g., Harvest Day)">
-                <textarea id="new-content" class="editor-body" placeholder="Write your daily log here..."></textarea>
-                <div class="editor-tools">
-                    <button class="ai-btn" onclick="aiAutoDraft()"><span>✨ AI Auto-Draft</span></button>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" id="new-tags" style="border:none; background:#f9f9f9; padding:8px 15px; border-radius:15px; outline:none; font-size:0.85rem;" placeholder="Tags">
-                        <button id="btn-post" class="post-btn">POST UPDATE</button>
+        // --- ENVIRONMENT DETECTION & DATABASE SETUP ---
+        let db = null;
+        let auth = null;
+        let useLocalStorage = false;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'kebundata-local';
+
+        try {
+            if (typeof __firebase_config !== 'undefined' && typeof firebase !== 'undefined') {
+                const firebaseConfig = JSON.parse(__firebase_config);
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                auth = firebase.auth();
+                db = firebase.firestore();
+                console.log("Environment: Cloud (Firebase)");
+            } else {
+                throw new Error("Firebase config not found");
+            }
+        } catch (e) {
+            console.warn("Environment: Local (Offline Mode). Using LocalStorage.");
+            useLocalStorage = true;
+        }
+
+        // --- DATA SERVICE (The "DevOps" Abstraction Layer) ---
+        // This allows the app to work seamlessly whether on Cloud or Local
+        const DataService = {
+            subscribePosts: (user, callback) => {
+                if (useLocalStorage || !user) {
+                    // Local Storage Implementation
+                    const loadLocal = () => {
+                        try {
+                            const saved = localStorage.getItem('kebun_posts');
+                            const parsed = saved ? JSON.parse(saved) : [];
+                            // Add default posts if empty for demo
+                            if (parsed.length === 0) {
+                                const defaults = [
+                                    { id: 1, title: "Local Mode Active", content: "This post is saved in your browser because no database connection was found.", date: new Date().toISOString().split('T')[0], createdAt: Date.now() }
+                                ];
+                                localStorage.setItem('kebun_posts', JSON.stringify(defaults));
+                                callback(defaults);
+                            } else {
+                                callback(parsed);
+                            }
+                        } catch(e) { callback([]); }
+                    };
+                    loadLocal();
+                    return () => {}; // No real subscription to unsubscribe from in local
+                } else {
+                    // Firebase Implementation
+                    return db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('journal_posts')
+                        .onSnapshot((snapshot) => {
+                            const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                            posts.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                            callback(posts);
+                        }, (err) => console.error("DB Error:", err));
+                }
+            },
+
+            addPost: async (user, post) => {
+                const newPostData = { ...post, date: new Date().toISOString().split('T')[0], createdAt: Date.now() };
+                
+                if (useLocalStorage || !user) {
+                    const saved = localStorage.getItem('kebun_posts');
+                    const posts = saved ? JSON.parse(saved) : [];
+                    const postWithId = { ...newPostData, id: Date.now().toString() };
+                    localStorage.setItem('kebun_posts', JSON.stringify([postWithId, ...posts]));
+                    // Force refresh for local (in a real app we'd use an event emitter)
+                    window.location.reload(); 
+                } else {
+                    await db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('journal_posts').add(newPostData);
+                }
+            },
+
+            deletePost: async (user, id) => {
+                if (useLocalStorage || !user) {
+                    const saved = localStorage.getItem('kebun_posts');
+                    const posts = saved ? JSON.parse(saved) : [];
+                    const filtered = posts.filter(p => p.id != id); // loose equality for string/number ids
+                    localStorage.setItem('kebun_posts', JSON.stringify(filtered));
+                    window.location.reload();
+                } else {
+                    await db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('journal_posts').doc(id).delete();
+                }
+            }
+        };
+
+        // --- ICONS ---
+        const IconHome = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
+        const IconBook = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>;
+        const IconPlus = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>;
+        const IconX = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
+        const IconTrash = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
+        const IconPlay = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>;
+        const IconImage = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>;
+        const IconMenu = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>;
+        const IconActivity = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
+        const IconWifiOff = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>;
+        const IconCloud = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>;
+
+        // --- COMPONENTS ---
+
+        const Button = ({ children, onClick, variant = 'primary', className = '', type = 'button', disabled = false }) => {
+            const baseStyle = "px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+            const variants = {
+                primary: "bg-kebun-600 text-white hover:bg-kebun-800 focus:ring-kebun-500 shadow-sm",
+                secondary: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-gray-200",
+                danger: "bg-red-50 text-red-600 hover:bg-red-100 focus:ring-red-500",
+                ghost: "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            };
+            return <button type={type} onClick={onClick} className={`${baseStyle} ${variants[variant]} ${className}`} disabled={disabled}>{children}</button>;
+        };
+
+        const InputGroup = ({ label, id, value, onChange, placeholder, type = "text", icon }) => (
+            <div className="space-y-1">
+                <label htmlFor={id} className="block text-sm font-medium text-gray-700">{label}</label>
+                <div className="relative rounded-md shadow-sm">
+                    {icon && <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><span className="text-gray-400">{icon}</span></div>}
+                    <input type={type} name={id} id={id} className={`block w-full ${icon ? 'pl-10' : 'pl-3'} pr-3 py-2 border border-gray-300 rounded-md focus:ring-kebun-500 focus:border-kebun-500 sm:text-sm`} placeholder={placeholder} value={value} onChange={onChange} />
+                </div>
+            </div>
+        );
+
+        const VideoPlayer = ({ url }) => {
+            if (!url) return null;
+            const getYoutubeEmbed = (url) => {
+                const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+                const match = url.match(regExp);
+                return (match && match[2].length === 11) ? match[2] : null;
+            };
+            const youtubeId = getYoutubeEmbed(url);
+            if (youtubeId) {
+                return (
+                    <div className="relative w-full overflow-hidden rounded-lg shadow-sm bg-black aspect-video">
+                        <iframe className="absolute top-0 left-0 w-full h-full" src={`https://www.youtube.com/embed/${youtubeId}`} title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                    </div>
+                );
+            }
+            return (
+                <div className="relative w-full rounded-lg overflow-hidden bg-black shadow-sm">
+                    <video controls className="w-full max-h-[500px]"><source src={url} />Your browser does not support the video tag.</video>
+                </div>
+            );
+        };
+
+        const StatusBadge = () => {
+            if (useLocalStorage) {
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                        <IconWifiOff /> Local Mode (Offline)
+                    </span>
+                );
+            }
+            return (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                    <IconCloud /> Cloud Synced
+                </span>
+            );
+        };
+
+        // --- VIEWS ---
+
+        const DashboardView = ({ postCount }) => (
+            <div className="space-y-6 fade-in">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <div className="flex items-center justify-between">
+                            <div><p className="text-sm font-medium text-gray-500">Total Harvest</p><p className="text-2xl font-bold text-gray-900">1,240 kg</p></div>
+                            <div className="p-3 bg-kebun-100 rounded-full text-kebun-600"><IconActivity /></div>
+                        </div>
+                        <div className="mt-4 flex items-center text-sm text-green-600"><span>+12% from last month</span></div>
+                    </div>
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <div className="flex items-center justify-between">
+                            <div><p className="text-sm font-medium text-gray-500">Active Sensors</p><p className="text-2xl font-bold text-gray-900">24/25</p></div>
+                            <div className="p-3 bg-blue-100 rounded-full text-blue-600"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"/><path d="M2 12h20"/><path d="m4.93 4.93 14.14 14.14"/><path d="m19.07 4.93-14.14 14.14"/></svg></div>
+                        </div>
+                        <div className="mt-4 flex items-center text-sm text-gray-500"><span>All systems nominal</span></div>
+                    </div>
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <div className="flex items-center justify-between">
+                            <div><p className="text-sm font-medium text-gray-500">Journal Posts</p><p className="text-2xl font-bold text-gray-900">{postCount}</p></div>
+                            <div className="p-3 bg-purple-100 rounded-full text-purple-600"><IconBook /></div>
+                        </div>
+                        <div className="mt-4 flex items-center text-sm text-purple-600"><span>{useLocalStorage ? 'Saved locally' : 'Synced to DB'}</span></div>
                     </div>
                 </div>
             </div>
-            <div id="blog-feed">
-                <div style="text-align: center; color: #ccc; margin-top: 40px;">Loading Database...</div>
-            </div>
-        </div>
+        );
 
-        <!-- MONITOR TAB -->
-        <div id="monitor" class="section">
-            <div class="grid">
-                <div class="dash-card">
-                    <div class="metric-label">Nutrient pH</div>
-                    <div class="metric-big" id="ph-val">6.0</div>
-                    <div style="height:4px; background:#eee; width:100%; border-radius:2px;"><div style="width:60%; background:var(--accent-primary); height:100%; border-radius:2px;"></div></div>
-                </div>
-                <div class="dash-card">
-                    <div class="metric-label">Water Temp</div>
-                    <div class="metric-big" id="temp-val">24.5°C</div>
-                    <div style="font-size:0.8rem; color:var(--accent-light);">Optimal Range</div>
-                </div>
-                <div class="dash-card">
-                    <div class="metric-label">Vapor Pressure (VPD)</div>
-                    <div class="metric-big" id="vpd-val">0.95</div>
-                    <div style="font-size:0.8rem; color:var(--accent-primary);">● Healthy</div>
-                </div>
-                <div class="chart-container">
-                    <canvas id="tempChart"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
+        const JournalView = ({ user, posts, setPosts }) => {
+            const [isFormOpen, setIsFormOpen] = useState(false);
+            const [newPost, setNewPost] = useState({ title: '', content: '', image: '', video: '' });
+            const [isSubmitting, setIsSubmitting] = useState(false);
 
-    <!-- FIREBASE & LOGIC -->
-    <script type="module">
-        // --- CONFIGURATION ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyBTvbb8trwrmCe9Gt5u3iAAqf7sR-MqBKE",
-            authDomain: "kebundata-964d4.firebaseapp.com",
-            projectId: "kebundata-964d4",
-            storageBucket: "kebundata-964d4.firebasestorage.app",
-            messagingSenderId: "412272585692",
-            appId: "1:412272585692:web:2d6ffbf018dfea84cf3d19",
-            measurementId: "G-RZ81MG2EP2"
+            const handleInputChange = (e) => setNewPost(prev => ({ ...prev, [e.target.name]: e.target.value }));
+            
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                if (!newPost.title.trim() || !newPost.content.trim()) return;
+                
+                setIsSubmitting(true);
+                try {
+                    await DataService.addPost(user, newPost);
+                    setNewPost({ title: '', content: '', image: '', video: '' });
+                    setIsFormOpen(false);
+                } catch (error) {
+                    console.error("Save error:", error);
+                    alert("Failed to save post");
+                } finally {
+                    setIsSubmitting(false);
+                }
+            };
+            
+            const handleDelete = async (id) => {
+                if(confirm('Delete this post?')) {
+                    await DataService.deletePost(user, id);
+                }
+            };
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-900">Journal Entries</h2>
+                            <p className="text-sm text-gray-500">
+                                {useLocalStorage ? 'Offline Mode (Data on this device only)' : 'Synced with Cloud Database'}
+                            </p>
+                        </div>
+                        <Button onClick={() => setIsFormOpen(true)} variant="primary" disabled={!useLocalStorage && !user}>
+                            <IconPlus /> <span className="hidden sm:inline">New Post</span>
+                        </Button>
+                    </div>
+
+                    {isFormOpen && (
+                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+                                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                                    <h2 className="text-lg font-semibold text-gray-800">New Journal Entry</h2>
+                                    <button onClick={() => setIsFormOpen(false)} className="text-gray-400 hover:text-gray-600"><IconX /></button>
+                                </div>
+                                <div className="p-6 overflow-y-auto">
+                                    <form className="space-y-5">
+                                        <InputGroup label="Title" id="title" value={newPost.title} onChange={handleInputChange} placeholder="Title..." />
+                                        <div className="space-y-1">
+                                            <label className="block text-sm font-medium text-gray-700">Content</label>
+                                            <textarea name="content" rows={4} className="block w-full p-3 border border-gray-300 rounded-md focus:ring-kebun-500 focus:border-kebun-500 sm:text-sm" placeholder="Write something..." value={newPost.content} onChange={handleInputChange} />
+                                        </div>
+                                        <div className="pt-2 border-t border-gray-100">
+                                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Add Media</p>
+                                            <div className="space-y-4">
+                                                <InputGroup label="Image URL" id="image" value={newPost.image} onChange={handleInputChange} placeholder="https://..." icon={<IconImage />} />
+                                                <InputGroup label="Video URL" id="video" value={newPost.video} onChange={handleInputChange} placeholder="https://youtube.com..." icon={<IconPlay />} />
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                                <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                                    <Button variant="secondary" onClick={() => setIsFormOpen(false)}>Cancel</Button>
+                                    <Button variant="primary" onClick={handleSubmit} disabled={!newPost.title || !newPost.content || isSubmitting}>
+                                        {isSubmitting ? 'Saving...' : 'Publish'}
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="space-y-8">
+                        {posts.map((post) => (
+                            <article key={post.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                                <div className="p-6 pb-4 flex justify-between items-start">
+                                    <div><h2 className="text-2xl font-bold text-gray-900 mb-1">{post.title}</h2><p className="text-sm text-gray-500">{post.date}</p></div>
+                                    <button onClick={() => handleDelete(post.id)} className="text-gray-400 hover:text-red-500 p-1"><IconTrash /></button>
+                                </div>
+                                <div className="w-full bg-gray-100">
+                                    {post.image && <img src={post.image} alt={post.title} className="w-full h-auto max-h-[500px] object-cover" onError={(e) => {e.target.style.display = 'none'}} />}
+                                    {post.video && <div className={post.image ? "border-t border-gray-200" : ""}><VideoPlayer url={post.video} /></div>}
+                                </div>
+                                <div className="p-6"><p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{post.content}</p></div>
+                            </article>
+                        ))}
+                    </div>
+                </div>
+            );
         };
 
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, query, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+            const [user, setUser] = useState(null);
+            const [posts, setPosts] = useState([]);
 
-        let db, user;
+            useEffect(() => {
+                if (!useLocalStorage && auth) {
+                    const initAuth = async () => {
+                        try {
+                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                                await auth.signInWithCustomToken(__initial_auth_token);
+                            } else {
+                                await auth.signInAnonymously();
+                            }
+                        } catch (e) { console.error("Auth failed:", e); }
+                    };
+                    initAuth();
+                    return auth.onAuthStateChanged((u) => setUser(u));
+                } else {
+                    // Local mode dummy user
+                    setUser({ uid: 'local-user' });
+                }
+            }, []);
 
-        try {
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            const auth = getAuth(app);
-            signInAnonymously(auth).catch(e => console.error("Auth Error:", e));
-            onAuthStateChanged(auth, (u) => { if(u) { user = u; loadPosts(); } });
-        } catch (e) { console.error("Init Error:", e); }
-
-        // --- CORE FUNCTIONS ---
-
-        const postBtn = document.getElementById('btn-post');
-        if(postBtn) {
-            postBtn.addEventListener('click', async () => {
-                if(!db) return alert("Database connecting...");
-                const title = document.getElementById('new-title').value;
-                const content = document.getElementById('new-content').value;
-                const tags = document.getElementById('new-tags').value;
-
-                if(!title || !content) return alert("Please write something.");
-                
-                postBtn.innerText = "Saving...";
-                try {
-                    await addDoc(collection(db, "posts"), {
-                        title, content, tags: tags.split(','), date: Timestamp.now(), author: user.uid
-                    });
-                    document.getElementById('new-title').value = "";
-                    document.getElementById('new-content').value = "";
-                    loadPosts();
-                } catch(e) { alert("Save Error: " + e.message); }
-                postBtn.innerText = "POST UPDATE";
-            });
-        }
-
-        async function loadPosts() {
-            const feed = document.getElementById('blog-feed');
-            try {
-                const q = query(collection(db, "posts"), orderBy("date", "desc"));
-                const snap = await getDocs(q);
-                feed.innerHTML = "";
-                
-                if(snap.empty) { feed.innerHTML = "<center style='color:#999; margin-top:20px;'>No posts yet.</center>"; return; }
-                
-                snap.forEach(doc => {
-                    const data = doc.data();
-                    const dateStr = data.date ? data.date.toDate().toLocaleString() : "Just now";
-                    
-                    // --- SOCIAL SHARE LOGIC ---
-                    const shareText = encodeURIComponent(`🌱 ${data.title}\n\n${data.content.substring(0, 100)}...\n\nRead more at KebunData:`);
-                    const shareUrl = encodeURIComponent(window.location.href);
-                    
-                    const xUrl = `https://twitter.com/intent/tweet?text=${shareText}&url=${shareUrl}`;
-                    const threadsUrl = `https://www.threads.net/intent/post?text=${shareText} ${shareUrl}`;
-                    const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}`;
-
-                    const div = document.createElement('div');
-                    div.className = 'post-card';
-                    div.innerHTML = `
-                        <span class="post-date">${dateStr}</span>
-                        <div class="post-title">${data.title}</div>
-                        <div class="post-content">${data.content}</div>
-                        <div class="share-row">
-                            <a href="${xUrl}" target="_blank" class="share-btn share-x">𝕏 Post</a>
-                            <a href="${threadsUrl}" target="_blank" class="share-btn share-threads">@ Threads</a>
-                            <a href="${fbUrl}" target="_blank" class="share-btn share-fb">f Share</a>
-                        </div>
-                    `;
-                    feed.appendChild(div);
+            useEffect(() => {
+                // Subscription abstraction handles both local and cloud
+                const unsubscribe = DataService.subscribePosts(user, (fetchedPosts) => {
+                    setPosts(fetchedPosts);
                 });
-            } catch (e) { console.error(e); }
-        }
+                return () => unsubscribe && unsubscribe();
+            }, [user]);
 
-        // --- DASHBOARD SIMULATION ---
-        window.aiAutoDraft = function() {
-            const ph = document.getElementById('ph-val').innerText;
-            const temp = document.getElementById('temp-val').innerText;
-            document.getElementById('new-title').value = "Daily Status Report";
-            document.getElementById('new-content').value = `System Status Report:\n- pH: ${ph}\n- Temp: ${temp}\n\nSystem running optimally. No issues detected in the ZipGrow towers.`;
-        }
+            return (
+                <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
+                    <div className="md:hidden bg-white border-b border-gray-200 p-4 flex justify-between items-center sticky top-0 z-20">
+                        <div className="flex items-center gap-2 font-bold text-kebun-800">
+                             <div className="h-8 w-8 bg-kebun-100 rounded-md flex items-center justify-center text-kebun-600">
+                                <img src="logo.png" alt="KD" className="h-6 w-6 object-contain" onError={(e) => e.target.style.display='none'} />
+                            </div>
+                            KebunData
+                        </div>
+                        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-gray-600"><IconMenu /></button>
+                    </div>
 
-        window.switchTab = function(t) {
-            document.querySelectorAll('.section').forEach(e => e.classList.remove('active'));
-            document.getElementById(t).classList.add('active');
-            document.querySelectorAll('.tab-btn').forEach(e => e.classList.remove('active'));
-            event.target.classList.add('active');
-            if(t === 'monitor' && window.myChart) window.myChart.resize();
-        }
+                    <aside className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 transform transition-transform duration-200 ease-in-out md:translate-x-0 md:static md:h-screen ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                        <div className="p-6 border-b border-gray-100 flex items-center gap-3">
+                            <div className="h-10 w-10 bg-kebun-50 rounded-lg flex items-center justify-center border border-kebun-100 overflow-hidden">
+                                <img src="logo.png" alt="Logo" className="h-full w-full object-contain" onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-kebun-600"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>'; }} />
+                            </div>
+                            <span className="text-xl font-bold text-gray-800">KebunData</span>
+                        </div>
+                        
+                        <nav className="p-4 space-y-1">
+                            <button onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-kebun-50 text-kebun-700' : 'text-gray-600 hover:bg-gray-50'}`}><IconHome /> Dashboard</button>
+                            <button onClick={() => { setActiveTab('journal'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'journal' ? 'bg-kebun-50 text-kebun-700' : 'text-gray-600 hover:bg-gray-50'}`}><IconBook /> Journal & Media</button>
+                        </nav>
+                        
+                        <div className="absolute bottom-0 w-full p-4 border-t border-gray-100">
+                             <StatusBadge />
+                        </div>
+                    </aside>
 
-        const ctx = document.getElementById('tempChart');
-        if(ctx) {
-            window.myChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: ['12:00', '12:05', '12:10', '12:15', '12:20'],
-                    datasets: [{
-                        label: 'Water Temp',
-                        data: [24.1, 24.3, 24.2, 24.5, 24.4],
-                        borderColor: '#588157', tension: 0.4, fill: true, backgroundColor: 'rgba(88, 129, 87, 0.1)'
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 20, max: 30 } } }
-            });
-        }
+                    {isMobileMenuOpen && <div className="fixed inset-0 bg-black/20 z-20 md:hidden" onClick={() => setIsMobileMenuOpen(false)}></div>}
 
-        setInterval(() => {
-            const ph = (6.0 + (Math.random() * 0.2 - 0.1)).toFixed(1);
-            const temp = (24.5 + (Math.random() * 0.4 - 0.2)).toFixed(1);
-            document.getElementById('ph-val').innerText = ph;
-            document.getElementById('temp-val').innerText = temp + "°C";
-            if(window.myChart) {
-                const newTime = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-                window.myChart.data.labels.push(newTime);
-                window.myChart.data.datasets[0].data.push(parseFloat(temp));
-                if(window.myChart.data.labels.length > 10) { window.myChart.data.labels.shift(); window.myChart.data.datasets[0].data.shift(); }
-                window.myChart.update();
-            }
-        }, 3000);
+                    <main className="flex-1 p-4 md:p-8 overflow-y-auto h-screen">
+                        <header className="mb-8 flex justify-between items-center">
+                            <div>
+                                <h1 className="text-2xl font-bold text-gray-900 capitalize">{activeTab}</h1>
+                                <p className="text-sm text-gray-500">Welcome back to your control center.</p>
+                            </div>
+                            <div className="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-500"><span className="font-bold">U</span></div>
+                        </header>
+
+                        {activeTab === 'dashboard' ? <DashboardView postCount={posts.length} /> : <JournalView user={user} posts={posts} setPosts={setPosts} />}
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>
