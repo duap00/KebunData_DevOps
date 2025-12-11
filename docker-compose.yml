@@ -1,19 +1,21 @@
 version: '3.3'
 
 services:
-  # 1. The Backend
+  # 1. The Backend (Node.js + SQLite)
   kebundata-api:
     build: ./kebundata-backend
     restart: always
     ports:
       - "3000:3000"
-    # environment: ... 
+    volumes:
+      - ./backend-data:/app/data
 
   # 2. The Frontend (Nginx)
-  kebundata-frontend:
+  kebundata-dashboard:
     image: nginx:alpine
     restart: always
     ports:
       - "8080:80"
     volumes:
+      # CHANGED: Pointing to the new folder name
       - ./kebundata-frontend:/usr/share/nginx/html
