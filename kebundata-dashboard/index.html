@@ -3,424 +3,206 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KebunData Dashboard</title>
+    <title>KebunData Dashboard (Oracle Connected)</title>
     
-    <!-- 1. React & ReactDOM (Global CDN) -->
+    <!-- Libraries -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    
-    <!-- 2. Babel (for JSX) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- 3. Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- 4. Firebase Compat Libraries -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-
-    <!-- Tailwind Config -->
     <script>
         tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        kebun: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 800: '#166534', 900: '#14532d' }
-                    }
-                }
-            }
+            theme: { extend: { colors: { kebun: { 50: '#f0fdf4', 600: '#16a34a', 800: '#166534' } } } }
         }
     </script>
-
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
-        .fade-in { animation: fadeIn 0.5s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    </style>
 </head>
 <body class="bg-gray-50 text-gray-900">
     <div id="root"></div>
 
     <script type="text/babel">
-        // --- ERROR HANDLING ---
-        window.onerror = function(message, source, lineno, colno, error) {
-            console.error(error);
-            // Don't overwrite body if it's just a warning, but helpful for debugging
-            return false; 
-        };
-
         const { useState, useEffect } = React;
 
-        // --- ENVIRONMENT DETECTION & DATABASE SETUP ---
-        let db = null;
-        let auth = null;
-        let useLocalStorage = false;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'kebundata-local';
-
-        try {
-            if (typeof __firebase_config !== 'undefined' && typeof firebase !== 'undefined') {
-                const firebaseConfig = JSON.parse(__firebase_config);
-                if (!firebase.apps.length) {
-                    firebase.initializeApp(firebaseConfig);
-                }
-                auth = firebase.auth();
-                db = firebase.firestore();
-                console.log("Environment: Cloud (Firebase)");
-            } else {
-                throw new Error("Firebase config not found");
-            }
-        } catch (e) {
-            console.warn("Environment: Local (Offline Mode). Using LocalStorage.");
-            useLocalStorage = true;
-        }
-
-        // --- DATA SERVICE (The "DevOps" Abstraction Layer) ---
-        // This allows the app to work seamlessly whether on Cloud or Local
+        // --- DATA SERVICE (Refactored to accept dynamic URL) ---
         const DataService = {
-            subscribePosts: (user, callback) => {
-                if (useLocalStorage || !user) {
-                    // Local Storage Implementation
-                    const loadLocal = () => {
-                        try {
-                            const saved = localStorage.getItem('kebun_posts');
-                            const parsed = saved ? JSON.parse(saved) : [];
-                            // Add default posts if empty for demo
-                            if (parsed.length === 0) {
-                                const defaults = [
-                                    { id: 1, title: "Local Mode Active", content: "This post is saved in your browser because no database connection was found.", date: new Date().toISOString().split('T')[0], createdAt: Date.now() }
-                                ];
-                                localStorage.setItem('kebun_posts', JSON.stringify(defaults));
-                                callback(defaults);
-                            } else {
-                                callback(parsed);
-                            }
-                        } catch(e) { callback([]); }
-                    };
-                    loadLocal();
-                    return () => {}; // No real subscription to unsubscribe from in local
-                } else {
-                    // Firebase Implementation
-                    return db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('journal_posts')
-                        .onSnapshot((snapshot) => {
-                            const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                            posts.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-                            callback(posts);
-                        }, (err) => console.error("DB Error:", err));
+            fetchPosts: async (url) => {
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`Server Error: ${response.status}`);
+                    return await response.json();
+                } catch (error) {
+                    console.error("Fetch Error:", error);
+                    return null;
                 }
             },
-
-            addPost: async (user, post) => {
-                const newPostData = { ...post, date: new Date().toISOString().split('T')[0], createdAt: Date.now() };
-                
-                if (useLocalStorage || !user) {
-                    const saved = localStorage.getItem('kebun_posts');
-                    const posts = saved ? JSON.parse(saved) : [];
-                    const postWithId = { ...newPostData, id: Date.now().toString() };
-                    localStorage.setItem('kebun_posts', JSON.stringify([postWithId, ...posts]));
-                    // Force refresh for local (in a real app we'd use an event emitter)
-                    window.location.reload(); 
-                } else {
-                    await db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('journal_posts').add(newPostData);
-                }
+            addPost: async (url, post) => {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(post)
+                });
+                if (!response.ok) throw new Error('Failed to add post');
             },
-
-            deletePost: async (user, id) => {
-                if (useLocalStorage || !user) {
-                    const saved = localStorage.getItem('kebun_posts');
-                    const posts = saved ? JSON.parse(saved) : [];
-                    const filtered = posts.filter(p => p.id != id); // loose equality for string/number ids
-                    localStorage.setItem('kebun_posts', JSON.stringify(filtered));
-                    window.location.reload();
-                } else {
-                    await db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('journal_posts').doc(id).delete();
-                }
+            deletePost: async (url, id) => {
+                 await fetch(`${url}/${id}`, { method: 'DELETE' });
             }
         };
 
         // --- ICONS ---
-        const IconHome = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
-        const IconBook = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>;
-        const IconPlus = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>;
-        const IconX = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
-        const IconTrash = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
-        const IconPlay = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>;
-        const IconImage = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>;
         const IconMenu = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>;
-        const IconActivity = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
-        const IconWifiOff = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>;
-        const IconCloud = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>;
+        const IconDatabase = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>;
+        const IconServerOff = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><rect x="2" y="2" width="20" height="8" rx="2" ry="2" transform="rotate(180 12 6)"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="18" y1="6" x2="18.01" y2="6"/><path d="M2 14h2"/><path d="M22 14h-2"/><path d="M12 12v8"/><path d="M2 22h20"/></svg>;
+        const IconTrash = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
+        const IconSettings = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>;
 
-        // --- COMPONENTS ---
-
-        const Button = ({ children, onClick, variant = 'primary', className = '', type = 'button', disabled = false }) => {
-            const baseStyle = "px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
-            const variants = {
-                primary: "bg-kebun-600 text-white hover:bg-kebun-800 focus:ring-kebun-500 shadow-sm",
-                secondary: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-gray-200",
-                danger: "bg-red-50 text-red-600 hover:bg-red-100 focus:ring-red-500",
-                ghost: "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-            };
-            return <button type={type} onClick={onClick} className={`${baseStyle} ${variants[variant]} ${className}`} disabled={disabled}>{children}</button>;
-        };
-
-        const InputGroup = ({ label, id, value, onChange, placeholder, type = "text", icon }) => (
-            <div className="space-y-1">
-                <label htmlFor={id} className="block text-sm font-medium text-gray-700">{label}</label>
-                <div className="relative rounded-md shadow-sm">
-                    {icon && <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><span className="text-gray-400">{icon}</span></div>}
-                    <input type={type} name={id} id={id} className={`block w-full ${icon ? 'pl-10' : 'pl-3'} pr-3 py-2 border border-gray-300 rounded-md focus:ring-kebun-500 focus:border-kebun-500 sm:text-sm`} placeholder={placeholder} value={value} onChange={onChange} />
-                </div>
-            </div>
+        const StatusBadge = ({ connected, onClick }) => (
+            <button onClick={onClick} className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-colors hover:opacity-80 ${connected ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                {connected ? <><IconDatabase /><span className="truncate">Oracle DB Connected</span></> : <><IconServerOff /><span>API Offline</span></>}
+            </button>
         );
-
-        const VideoPlayer = ({ url }) => {
-            if (!url) return null;
-            const getYoutubeEmbed = (url) => {
-                const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-                const match = url.match(regExp);
-                return (match && match[2].length === 11) ? match[2] : null;
-            };
-            const youtubeId = getYoutubeEmbed(url);
-            if (youtubeId) {
-                return (
-                    <div className="relative w-full overflow-hidden rounded-lg shadow-sm bg-black aspect-video">
-                        <iframe className="absolute top-0 left-0 w-full h-full" src={`https://www.youtube.com/embed/${youtubeId}`} title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-                    </div>
-                );
-            }
-            return (
-                <div className="relative w-full rounded-lg overflow-hidden bg-black shadow-sm">
-                    <video controls className="w-full max-h-[500px]"><source src={url} />Your browser does not support the video tag.</video>
-                </div>
-            );
-        };
-
-        const StatusBadge = () => {
-            if (useLocalStorage) {
-                return (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
-                        <IconWifiOff /> Local Mode (Offline)
-                    </span>
-                );
-            }
-            return (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                    <IconCloud /> Cloud Synced
-                </span>
-            );
-        };
-
-        // --- VIEWS ---
-
-        const DashboardView = ({ postCount }) => (
-            <div className="space-y-6 fade-in">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                        <div className="flex items-center justify-between">
-                            <div><p className="text-sm font-medium text-gray-500">Total Harvest</p><p className="text-2xl font-bold text-gray-900">1,240 kg</p></div>
-                            <div className="p-3 bg-kebun-100 rounded-full text-kebun-600"><IconActivity /></div>
-                        </div>
-                        <div className="mt-4 flex items-center text-sm text-green-600"><span>+12% from last month</span></div>
-                    </div>
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                        <div className="flex items-center justify-between">
-                            <div><p className="text-sm font-medium text-gray-500">Active Sensors</p><p className="text-2xl font-bold text-gray-900">24/25</p></div>
-                            <div className="p-3 bg-blue-100 rounded-full text-blue-600"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"/><path d="M2 12h20"/><path d="m4.93 4.93 14.14 14.14"/><path d="m19.07 4.93-14.14 14.14"/></svg></div>
-                        </div>
-                        <div className="mt-4 flex items-center text-sm text-gray-500"><span>All systems nominal</span></div>
-                    </div>
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                        <div className="flex items-center justify-between">
-                            <div><p className="text-sm font-medium text-gray-500">Journal Posts</p><p className="text-2xl font-bold text-gray-900">{postCount}</p></div>
-                            <div className="p-3 bg-purple-100 rounded-full text-purple-600"><IconBook /></div>
-                        </div>
-                        <div className="mt-4 flex items-center text-sm text-purple-600"><span>{useLocalStorage ? 'Saved locally' : 'Synced to DB'}</span></div>
-                    </div>
-                </div>
-            </div>
-        );
-
-        const JournalView = ({ user, posts, setPosts }) => {
-            const [isFormOpen, setIsFormOpen] = useState(false);
-            const [newPost, setNewPost] = useState({ title: '', content: '', image: '', video: '' });
-            const [isSubmitting, setIsSubmitting] = useState(false);
-
-            const handleInputChange = (e) => setNewPost(prev => ({ ...prev, [e.target.name]: e.target.value }));
-            
-            const handleSubmit = async (e) => {
-                e.preventDefault();
-                if (!newPost.title.trim() || !newPost.content.trim()) return;
-                
-                setIsSubmitting(true);
-                try {
-                    await DataService.addPost(user, newPost);
-                    setNewPost({ title: '', content: '', image: '', video: '' });
-                    setIsFormOpen(false);
-                } catch (error) {
-                    console.error("Save error:", error);
-                    alert("Failed to save post");
-                } finally {
-                    setIsSubmitting(false);
-                }
-            };
-            
-            const handleDelete = async (id) => {
-                if(confirm('Delete this post?')) {
-                    await DataService.deletePost(user, id);
-                }
-            };
-
-            return (
-                <div className="space-y-6">
-                    <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                        <div>
-                            <h2 className="text-xl font-bold text-gray-900">Journal Entries</h2>
-                            <p className="text-sm text-gray-500">
-                                {useLocalStorage ? 'Offline Mode (Data on this device only)' : 'Synced with Cloud Database'}
-                            </p>
-                        </div>
-                        <Button onClick={() => setIsFormOpen(true)} variant="primary" disabled={!useLocalStorage && !user}>
-                            <IconPlus /> <span className="hidden sm:inline">New Post</span>
-                        </Button>
-                    </div>
-
-                    {isFormOpen && (
-                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-                                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                                    <h2 className="text-lg font-semibold text-gray-800">New Journal Entry</h2>
-                                    <button onClick={() => setIsFormOpen(false)} className="text-gray-400 hover:text-gray-600"><IconX /></button>
-                                </div>
-                                <div className="p-6 overflow-y-auto">
-                                    <form className="space-y-5">
-                                        <InputGroup label="Title" id="title" value={newPost.title} onChange={handleInputChange} placeholder="Title..." />
-                                        <div className="space-y-1">
-                                            <label className="block text-sm font-medium text-gray-700">Content</label>
-                                            <textarea name="content" rows={4} className="block w-full p-3 border border-gray-300 rounded-md focus:ring-kebun-500 focus:border-kebun-500 sm:text-sm" placeholder="Write something..." value={newPost.content} onChange={handleInputChange} />
-                                        </div>
-                                        <div className="pt-2 border-t border-gray-100">
-                                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Add Media</p>
-                                            <div className="space-y-4">
-                                                <InputGroup label="Image URL" id="image" value={newPost.image} onChange={handleInputChange} placeholder="https://..." icon={<IconImage />} />
-                                                <InputGroup label="Video URL" id="video" value={newPost.video} onChange={handleInputChange} placeholder="https://youtube.com..." icon={<IconPlay />} />
-                                            </div>
-                                        </div>
-                                    </form>
-                                </div>
-                                <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
-                                    <Button variant="secondary" onClick={() => setIsFormOpen(false)}>Cancel</Button>
-                                    <Button variant="primary" onClick={handleSubmit} disabled={!newPost.title || !newPost.content || isSubmitting}>
-                                        {isSubmitting ? 'Saving...' : 'Publish'}
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="space-y-8">
-                        {posts.map((post) => (
-                            <article key={post.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                <div className="p-6 pb-4 flex justify-between items-start">
-                                    <div><h2 className="text-2xl font-bold text-gray-900 mb-1">{post.title}</h2><p className="text-sm text-gray-500">{post.date}</p></div>
-                                    <button onClick={() => handleDelete(post.id)} className="text-gray-400 hover:text-red-500 p-1"><IconTrash /></button>
-                                </div>
-                                <div className="w-full bg-gray-100">
-                                    {post.image && <img src={post.image} alt={post.title} className="w-full h-auto max-h-[500px] object-cover" onError={(e) => {e.target.style.display = 'none'}} />}
-                                    {post.video && <div className={post.image ? "border-t border-gray-200" : ""}><VideoPlayer url={post.video} /></div>}
-                                </div>
-                                <div className="p-6"><p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{post.content}</p></div>
-                            </article>
-                        ))}
-                    </div>
-                </div>
-            );
-        };
 
         const App = () => {
-            const [activeTab, setActiveTab] = useState('dashboard');
-            const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-            const [user, setUser] = useState(null);
+            // Default to localhost, but allow user override in UI
+            const [apiUrl, setApiUrl] = useState('http://localhost:3000/api/posts');
+            const [showConfig, setShowConfig] = useState(false);
             const [posts, setPosts] = useState([]);
+            const [isConnected, setIsConnected] = useState(false);
+            const [newPost, setNewPost] = useState({ title: '', content: '' });
 
-            useEffect(() => {
-                if (!useLocalStorage && auth) {
-                    const initAuth = async () => {
-                        try {
-                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                                await auth.signInWithCustomToken(__initial_auth_token);
-                            } else {
-                                await auth.signInAnonymously();
-                            }
-                        } catch (e) { console.error("Auth failed:", e); }
-                    };
-                    initAuth();
-                    return auth.onAuthStateChanged((u) => setUser(u));
+            const loadData = async () => {
+                const data = await DataService.fetchPosts(apiUrl);
+                if (data) {
+                    const mapped = data.map(p => ({
+                        id: p.ID, 
+                        title: p.TITLE, 
+                        content: p.CONTENT, 
+                        date: p.CREATED_AT
+                    }));
+                    setPosts(mapped);
+                    setIsConnected(true);
                 } else {
-                    // Local mode dummy user
-                    setUser({ uid: 'local-user' });
+                    setIsConnected(false);
                 }
-            }, []);
+            };
 
+            // Check connection on mount and when URL changes
             useEffect(() => {
-                // Subscription abstraction handles both local and cloud
-                const unsubscribe = DataService.subscribePosts(user, (fetchedPosts) => {
-                    setPosts(fetchedPosts);
-                });
-                return () => unsubscribe && unsubscribe();
-            }, [user]);
+                loadData();
+                const interval = setInterval(loadData, 5000); 
+                return () => clearInterval(interval);
+            }, [apiUrl]);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                try {
+                    await DataService.addPost(apiUrl, newPost);
+                    setNewPost({ title: '', content: '' });
+                    loadData();
+                } catch(e) {
+                    alert("Failed to save. Check your connection.");
+                }
+            };
+
+            const handleDelete = async (id) => {
+                if(confirm('Delete?')) {
+                    await DataService.deletePost(apiUrl, id);
+                    loadData();
+                }
+            };
 
             return (
-                <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
-                    <div className="md:hidden bg-white border-b border-gray-200 p-4 flex justify-between items-center sticky top-0 z-20">
-                        <div className="flex items-center gap-2 font-bold text-kebun-800">
-                             <div className="h-8 w-8 bg-kebun-100 rounded-md flex items-center justify-center text-kebun-600">
-                                <img src="logo.png" alt="KD" className="h-6 w-6 object-contain" onError={(e) => e.target.style.display='none'} />
+                <div className="min-h-screen flex flex-col md:flex-row font-sans">
+                    <aside className="w-full md:w-64 bg-white border-r p-6 flex flex-col justify-between">
+                        <div>
+                            <div className="text-xl font-bold text-gray-800 mb-8 flex items-center gap-2">
+                                <span className="bg-green-100 text-green-700 p-1 rounded">KD</span> KebunData
                             </div>
-                            KebunData
+                            
+                            {/* Configuration Panel - Helpful for debugging "Failed to Fetch" */}
+                            <div className={`text-sm mb-4 bg-gray-50 p-3 rounded border ${showConfig ? 'block' : 'hidden'}`}>
+                                <label className="block text-gray-500 text-xs uppercase font-bold mb-1">Backend API URL</label>
+                                <input 
+                                    className="w-full border p-1 rounded text-xs mb-2" 
+                                    value={apiUrl} 
+                                    onChange={(e) => setApiUrl(e.target.value)} 
+                                />
+                                <div className="text-xs text-gray-400">
+                                    Tip: If on a different device, use the server's IP address (e.g., http://192.168.1.5:3000/api/posts)
+                                </div>
+                            </div>
                         </div>
-                        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-gray-600"><IconMenu /></button>
-                    </div>
 
-                    <aside className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 transform transition-transform duration-200 ease-in-out md:translate-x-0 md:static md:h-screen ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-                        <div className="p-6 border-b border-gray-100 flex items-center gap-3">
-                            <div className="h-10 w-10 bg-kebun-50 rounded-lg flex items-center justify-center border border-kebun-100 overflow-hidden">
-                                <img src="logo.png" alt="Logo" className="h-full w-full object-contain" onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-kebun-600"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>'; }} />
+                        <div className="mt-4 md:mt-0">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-bold text-gray-400 uppercase">System Status</span>
+                                <button onClick={() => setShowConfig(!showConfig)} className="text-gray-400 hover:text-gray-600">
+                                    <IconSettings />
+                                </button>
                             </div>
-                            <span className="text-xl font-bold text-gray-800">KebunData</span>
-                        </div>
-                        
-                        <nav className="p-4 space-y-1">
-                            <button onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-kebun-50 text-kebun-700' : 'text-gray-600 hover:bg-gray-50'}`}><IconHome /> Dashboard</button>
-                            <button onClick={() => { setActiveTab('journal'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'journal' ? 'bg-kebun-50 text-kebun-700' : 'text-gray-600 hover:bg-gray-50'}`}><IconBook /> Journal & Media</button>
-                        </nav>
-                        
-                        <div className="absolute bottom-0 w-full p-4 border-t border-gray-100">
-                             <StatusBadge />
+                            <StatusBadge connected={isConnected} onClick={() => setShowConfig(!showConfig)} />
                         </div>
                     </aside>
-
-                    {isMobileMenuOpen && <div className="fixed inset-0 bg-black/20 z-20 md:hidden" onClick={() => setIsMobileMenuOpen(false)}></div>}
-
-                    <main className="flex-1 p-4 md:p-8 overflow-y-auto h-screen">
+                    
+                    <main className="flex-1 p-8 bg-gray-50 h-screen overflow-y-auto">
                         <header className="mb-8 flex justify-between items-center">
-                            <div>
-                                <h1 className="text-2xl font-bold text-gray-900 capitalize">{activeTab}</h1>
-                                <p className="text-sm text-gray-500">Welcome back to your control center.</p>
-                            </div>
-                            <div className="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-500"><span className="font-bold">U</span></div>
+                            <h1 className="text-2xl font-bold text-gray-800">Journal</h1>
+                            {!isConnected && (
+                                <div className="text-red-500 text-sm font-medium flex items-center gap-2 bg-red-50 px-3 py-1 rounded border border-red-200">
+                                    <span>⚠️ Connection Failed</span>
+                                    <button onClick={() => setShowConfig(true)} className="underline text-red-700">Configure IP</button>
+                                </div>
+                            )}
                         </header>
+                        
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
+                            <h2 className="text-lg font-bold mb-4 text-gray-700">New Entry</h2>
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <input 
+                                    className="w-full border border-gray-300 p-2 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none" 
+                                    placeholder="Title" 
+                                    value={newPost.title} 
+                                    onChange={e => setNewPost({...newPost, title: e.target.value})} 
+                                />
+                                <textarea 
+                                    className="w-full border border-gray-300 p-2 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none" 
+                                    placeholder="Content" 
+                                    rows="3" 
+                                    value={newPost.content} 
+                                    onChange={e => setNewPost({...newPost, content: e.target.value})} 
+                                />
+                                <button 
+                                    disabled={!isConnected} 
+                                    className="bg-green-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    Publish to Oracle
+                                </button>
+                            </form>
+                        </div>
 
-                        {activeTab === 'dashboard' ? <DashboardView postCount={posts.length} /> : <JournalView user={user} posts={posts} setPosts={setPosts} />}
+                        <div className="space-y-4">
+                            {posts.length === 0 && isConnected && (
+                                <div className="text-center text-gray-400 py-10">No entries yet. Start writing!</div>
+                            )}
+                            {posts.map(post => (
+                                <div key={post.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex justify-between group">
+                                    <div>
+                                        <h3 className="font-bold text-lg text-gray-800">{post.title}</h3>
+                                        <p className="text-gray-600 mt-1">{post.content}</p>
+                                        <span className="text-xs text-gray-400 mt-2 block">{new Date(post.date).toLocaleDateString()}</span>
+                                    </div>
+                                    <button 
+                                        onClick={() => handleDelete(post.id)} 
+                                        className="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-2"
+                                    >
+                                        <IconTrash />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
                     </main>
                 </div>
             );
         };
-
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
