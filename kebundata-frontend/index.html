@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KebunData Smart Dashboard</title>
+    
+   <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+
+    <div style="text-align: center; margin-bottom: 20px;">
+        <img src="logo.png" alt="KebunData Logo" style="max-width: 150px;">
+        <h1>KebunData Monitor</h1>
+    </div>
+
+    <div class="dashboard-container">
+
+        <div class="card status-good" id="card-temp">
+            <div class="card-header">
+                <span>Ambient Temp</span>
+                <span class="status-dot"></span>
+            </div>
+            <div class="data-value">
+                24.5<span class="unit">°C</span>
+            </div>
+            <div class="data-range">
+                <span>Target: 22°C - 26°C</span>
+            </div>
+        </div>
+
+        <div class="card status-warning" id="card-humidity">
+            <div class="card-header">
+                <span>Humidity (RH)</span>
+                <span class="status-dot"></span>
+            </div>
+            <div class="data-value">
+                82<span class="unit">%</span>
+            </div>
+            <div class="data-range">
+                <span>Target: 60% - 75%</span>
+            </div>
+        </div>
+
+        <div class="card status-critical" id="card-water">
+            <div class="card-header">
+                <span>Reservoir Level</span>
+                <span class="status-dot"></span>
+            </div>
+            <div class="data-value">
+                10<span class="unit">%</span>
+            </div>
+            <div class="data-range">
+                <span>⚠️ Low Level</span>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="posts.js"></script>
+    <script src="dashboard.js"></script>
+
+</body>
+</html>

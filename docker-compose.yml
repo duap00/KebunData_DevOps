@@ -1,19 +1,19 @@
-version: '3.8'
+version: '3.3'
 
 services:
-  # 1. The Backend (Node.js)
+  # 1. The Backend
   kebundata-api:
     build: ./kebundata-backend
     restart: always
     ports:
       - "3000:3000"
-    # environment: ... (We will fix this in a moment)
+    # environment: ... 
 
   # 2. The Frontend (Nginx)
-  kebundata-dashboard:
+  kebundata-frontend:
     image: nginx:alpine
     restart: always
     ports:
       - "8080:80"
     volumes:
-      - ./kebundata-dashboard:/usr/share/nginx/html
+      - ./kebundata-frontend:/usr/share/nginx/html

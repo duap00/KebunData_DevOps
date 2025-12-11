@@ -1,0 +1,143 @@
+/* style.css - Robot People 'Hunter Green' Theme */
+
+:root {
+    /* 1. THE BASE (60%) - Deep Carbon (Neutral dark to let your green pop) */
+    --bg-color: #1a1a1a; 
+    
+    /* 2. THE BRAND (30%) - Your Specific Code */
+    --brand-green: #2c4035; 
+    
+    /* 3. THE ACCENT (10%) - Harvest Gold */
+    --accent-gold: #d4af37; 
+
+    /* Text Colors */
+    --text-main: #e0e0e0;
+    --text-muted: #9ca3a0;
+    
+    /* Calculated 'Glow' Color for Text (Lighter version of your green) */
+    --text-glow-green: #5c8a6d; 
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+h1 {
+    font-weight: 300;
+    color: #ffffff;
+    text-align: center;
+    letter-spacing: 2px;
+    margin-top: 20px;
+}
+
+/* --- NAVIGATION TABS --- */
+.navbar {
+    background-color: var(--brand-green); /* Using your color here */
+    width: 100%;
+    padding: 0; /* Removing padding to make it slim */
+    display: flex;
+    justify-content: center;
+    gap: 0; /* Remove gap for seamless look */
+    margin-bottom: 30px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+}
+
+.nav-link {
+    color: #aebfb5; /* Light text on dark green background */
+    text-decoration: none;
+    font-size: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 20px 40px;
+    transition: all 0.3s;
+    border-bottom: 4px solid transparent;
+}
+
+.nav-link:hover {
+    background-color: rgba(0,0,0,0.2); /* Darken slightly on hover */
+    color: #fff;
+}
+
+/* The Active Tab */
+.nav-link.active {
+    color: #ffffff;
+    background-color: rgba(0,0,0,0.1);
+    border-bottom: 4px solid var(--accent-gold); /* Gold Underline */
+}
+
+/* --- DASHBOARD GRID --- */
+.dashboard-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+    width: 90%;
+    max-width: 1200px;
+    padding-bottom: 40px;
+}
+
+/* --- CARD DESIGN --- */
+.card {
+    background-color: #242424; /* Slightly lighter than BG */
+    border-radius: 4px; /* Boxy "Industrial" look */
+    padding: 25px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    
+    /* Your green is the default border */
+    border-left: 6px solid var(--brand-green);
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+/* DOTS */
+.status-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; box-shadow: 0 0 5px currentColor; }
+
+/* DATA VALUES */
+.data-value { 
+    font-size: 3.5rem; 
+    font-weight: 700; 
+    margin: 0; 
+    line-height: 1; 
+    color: #fff; 
+}
+.unit { font-size: 1.5rem; font-weight: 400; color: var(--text-muted); }
+
+.data-range { margin-top: 15px; font-size: 0.9rem; color: var(--text-muted); display: flex; align-items: center; gap: 5px; }
+
+/* --- STATUS COLORS --- */
+
+/* GOOD: Uses your brand border, but lighter text for readability */
+.status-good { border-left-color: var(--brand-green); }
+.status-good .data-value { color: var(--text-glow-green); } 
+.status-good .status-dot { background-color: var(--text-glow-green); }
+
+/* WARNING: Gold */
+.status-warning { border-left-color: var(--accent-gold); }
+.status-warning .data-value { color: var(--accent-gold); }
+.status-warning .status-dot { background-color: var(--accent-gold); }
+
+/* CRITICAL: Red */
+.status-critical { border-left-color: #d32f2f; }
+.status-critical .data-value { color: #d32f2f; }
+.status-critical .status-dot { background-color: #d32f2f; }
