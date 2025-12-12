@@ -31,7 +31,6 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #E0E2E1; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #D4A056; }
-        /* Calendar specific styles */
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
@@ -50,8 +49,8 @@
         const { useState, useEffect, useRef, useMemo } = React;
         const BASE_API = `http://${window.location.hostname}:3000/api`;
         
-        // --- API KEY SECTION ---
-        const apiKey = ""; // Paste your AIza... key here
+        // --- SECURITY UPGRADE: No API Key here! ---
+        // We use the backend proxy instead.
 
         const CROP_SCHEDULE = {
             'Kale': { 'Sowing': 3, 'Germination': 7, 'Seedling': 21, 'Vegetative': 55, 'Harvest': 70 },
@@ -59,6 +58,8 @@
             'Lettuce': { 'Sowing': 2, 'Germination': 7, 'Seedling': 20, 'Vegetative': 40, 'Harvest': 55 },
             'Chili': { 'Sowing': 7, 'Germination': 14, 'Seedling': 35, 'Vegetative': 75, 'Harvest': 100 }
         };
+        
+        const STAGE_ORDER = ['Sowing', 'Germination', 'Seedling', 'Vegetative', 'Harvest'];
 
         const Icons = {
             Leaf: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 22c4.97 0 9-4.03 9-9c0-4.97-9-13-9-13S3 8.03 3 13c0 4.97 4.03 9 9 9z"/><path d="M12 13a5 5 0 0 0 5 5"/><path d="M12 22V9"/></svg>,
@@ -82,10 +83,13 @@
         const AIService = {
             askAgronomist: async (crop, stage, notes) => {
                 try {
+                    // SECURE: Call backend proxy instead of Google directly
                     const response = await fetch(`${BASE_API}/ask-ai`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt: `Act as expert agricultural consultant for ${crop} at ${stage} stage. Notes: ${notes}. Give 3 actionable tips.` })
+                        body: JSON.stringify({ 
+                            prompt: `Act as expert agricultural consultant for ${crop} at ${stage} stage. Notes: ${notes}. Give 3 actionable tips.` 
+                        })
                     });
                     const data = await response.json();
                     return data.candidates?.[0]?.content?.parts?.[0]?.text || "AI unavailable.";
@@ -93,48 +97,65 @@
             }
         };
 
-        // --- NEW: FARM ACTIVITY CALENDAR ---
+        // --- CALENDAR WITH FORECAST LOGIC ---
         const FarmCalendar = ({ posts }) => {
             const [currentDate, setCurrentDate] = useState(new Date());
-
             const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
             const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
 
-            const monthNames = ["January", "February", "March", "April", "May", "June",
-                "July", "August", "September", "October", "November", "December"
-            ];
+            const realEvents = posts.map(p => ({
+                date: new Date(p.date),
+                title: `${p.crop_name} ${p.stage || 'Log'}`,
+                type: 'real',
+                id: p.id,
+                location: p.location
+            }));
 
-            const changeMonth = (offset) => {
-                setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1));
-            };
+            const projectedEvents = posts.map(p => {
+                if (!p.crop_name || !p.stage) return null;
+                const duration = CROP_SCHEDULE[p.crop_name]?.[p.stage];
+                if (!duration) return null;
+                const currentIdx = STAGE_ORDER.indexOf(p.stage);
+                const nextStage = STAGE_ORDER[currentIdx + 1];
+                if (!nextStage) return null;
 
+                const finishDate = new Date(p.date);
+                finishDate.setDate(finishDate.getDate() + duration);
+
+                return {
+                    date: finishDate,
+                    title: `Exp: ${nextStage}`,
+                    type: 'projected',
+                    id: `proj-${p.id}`,
+                    location: p.location
+                };
+            }).filter(Boolean);
+
+            const allEvents = [...realEvents, ...projectedEvents];
+
+            const changeMonth = (offset) => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1));
+            
             const getEventsForDay = (day) => {
-                return posts.filter(p => {
-                    const pDate = new Date(p.date);
-                    return pDate.getDate() === day &&
-                           pDate.getMonth() === currentDate.getMonth() &&
-                           pDate.getFullYear() === currentDate.getFullYear();
-                });
+                return allEvents.filter(ev => 
+                    ev.date.getDate() === day &&
+                    ev.date.getMonth() === currentDate.getMonth() &&
+                    ev.date.getFullYear() === currentDate.getFullYear()
+                );
             };
 
             const renderCalendarDays = () => {
                 const days = [];
-                // Empty slots for prev month
-                for (let i = 0; i < firstDay; i++) {
-                    days.push(<div key={`empty-${i}`} className="h-20 bg-gray-50 border border-gray-100"></div>);
-                }
-                // Actual days
+                for (let i = 0; i < firstDay; i++) days.push(<div key={`empty-${i}`} className="h-20 bg-gray-50 border border-gray-100"></div>);
                 for (let d = 1; d <= daysInMonth; d++) {
                     const events = getEventsForDay(d);
                     const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), d).toDateString();
-                    
                     days.push(
                         <div key={d} className={`h-20 border border-gray-100 p-1 relative overflow-hidden group hover:bg-white transition-colors ${isToday ? 'bg-green-50' : 'bg-surface'}`}>
                             <span className={`text-xs font-bold ${isToday ? 'text-green-600' : 'text-gray-400'} block mb-1`}>{d}</span>
                             <div className="space-y-1 overflow-y-auto max-h-[calc(100%-1.2rem)] scrollbar-hide">
                                 {events.map(ev => (
-                                    <div key={ev.id} className="text-[9px] bg-primary/10 text-primary px-1 py-0.5 rounded truncate cursor-help" title={`${ev.title}\nLocation: ${ev.location || 'Unknown'}`}>
-                                        {ev.crop_name || 'Log'} 
+                                    <div key={ev.id} className={`text-[9px] px-1 py-0.5 rounded truncate cursor-help ${ev.type === 'real' ? 'bg-primary/10 text-primary' : 'bg-blue-50 text-blue-600 border border-blue-100 border-dashed'}`} title={`${ev.title} @ ${ev.location || 'Farm'}`}>
+                                        {ev.title}
                                     </div>
                                 ))}
                             </div>
@@ -150,15 +171,12 @@
                         <h3 className="text-secondary text-sm font-semibold uppercase">Activity Calendar</h3>
                         <div className="flex items-center gap-2">
                             <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-gray-100 rounded text-xs">◀</button>
-                            <span className="text-sm font-bold text-primary w-24 text-center">{monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}</span>
+                            <span className="text-sm font-bold text-primary w-24 text-center">{currentDate.toLocaleString('default', { month: 'long' })}</span>
                             <button onClick={() => changeMonth(1)} className="p-1 hover:bg-gray-100 rounded text-xs">▶</button>
                         </div>
                     </div>
-                    
                     <div className="grid grid-cols-7 gap-px bg-gray-200 border border-gray-200 rounded-lg overflow-hidden flex-1">
-                        {['S','M','T','W','T','F','S'].map(d => (
-                            <div key={d} className="bg-gray-50 text-center text-[10px] font-bold text-gray-400 py-1">{d}</div>
-                        ))}
+                        {['S','M','T','W','T','F','S'].map(d => <div key={d} className="bg-gray-50 text-center text-[10px] font-bold text-gray-400 py-1">{d}</div>)}
                         {renderCalendarDays()}
                     </div>
                 </div>
@@ -281,7 +299,12 @@
             const [dashboardData, setDashboardData] = useState(null);
             const [online, setOnline] = useState(false);
             const [sharePost, setSharePost] = useState(null);
-            const [newPost, setNewPost] = useState({ title: '', content: '', image: '', video: '', crop: 'Kale', stage: 'Sowing', location: 'Germination 1', plant_count: '', rejected_count: '' });
+            
+            const [newPost, setNewPost] = useState({ 
+                title: '', content: '', image: '', video: '', 
+                crop: 'Kale', stage: 'Sowing', location: 'Germination 1',
+                plant_count: '', rejected_count: '' 
+            });
             const [aiAdvice, setAiAdvice] = useState('');
             const [isAiLoading, setIsAiLoading] = useState(false);
 
@@ -291,7 +314,8 @@
                     setPosts(postsData.map(p => ({ 
                         id: p.id, title: p.title, content: p.content, 
                         image: p.image, video: p.video, date: p.date, 
-                        crop_name: p.crop_name, location: p.location, stats: p.stats 
+                        crop_name: p.crop_name, location: p.location, 
+                        stats: p.stats, stage: p.stage 
                     })));
                     setOnline(true);
                 } else setOnline(false);
