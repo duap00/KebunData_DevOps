@@ -36,8 +36,9 @@ db.serialize(() => {
     // 2. Crop Logs (Journal)
     db.run(`CREATE TABLE IF NOT EXISTS crop_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT,     -- RESTORED: Stores your custom headline
         crop_name TEXT DEFAULT 'Kale',
-        location TEXT,  -- NEW: Stores "Zipgrow 1", "Germination Station" etc.
+        location TEXT,
         notes TEXT,
         image_url TEXT,
         video_url TEXT,
@@ -64,8 +65,7 @@ db.serialize(() => {
         status TEXT DEFAULT 'Idle'
     )`);
 
-    // 4. Reset & Seed Farm Layout (To apply your new names)
-    // We delete existing rows to force the name change from A1 to Zipgrow 1
+    // 4. Reset & Seed Farm Layout
     db.run("DELETE FROM farm_systems", [], (err) => {
         if (!err) {
             const systems = [
@@ -73,7 +73,8 @@ db.serialize(() => {
                 ['Zipgrow 2', 'Zipgrow Tower', 10],
                 ['Zipgrow 3', 'Zipgrow Tower', 10],
                 ['Aeroponics 1', 'Aeroponics', 72],
-                ['Germination 1', 'Germination Station', 200] // NEW
+                ['Germination 1', 'Germination Station', 200],
+                ['Packaging 1', 'Packaging Station', 0]
             ];
             const stmt = db.prepare("INSERT INTO farm_systems (system_code, system_type, capacity) VALUES (?, ?, ?)");
             systems.forEach(sys => stmt.run(sys));
@@ -81,12 +82,13 @@ db.serialize(() => {
         }
     });
 
-    // 5. Migrations
+    // 5. Migrations (Add columns if missing from old version)
     const migrations = [
         "ALTER TABLE crop_logs ADD COLUMN plant_count INTEGER DEFAULT 0",
         "ALTER TABLE crop_logs ADD COLUMN rejected_count INTEGER DEFAULT 0",
         "ALTER TABLE crop_logs ADD COLUMN harvest_amount_kg REAL DEFAULT 0",
-        "ALTER TABLE crop_logs ADD COLUMN location TEXT"
+        "ALTER TABLE crop_logs ADD COLUMN location TEXT",
+        "ALTER TABLE crop_logs ADD COLUMN title TEXT" // Fix: Add title column
     ];
     migrations.forEach(sql => {
         db.run(sql, (err) => { if (err && !err.message.includes("duplicate")) console.log("Migration info:", err.message); });
@@ -134,13 +136,14 @@ app.get('/api/posts', (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         const formatted = rows.map(r => ({
             id: r.id,
-            title: `${r.crop_name} Update`,
+            // FIX: Use the actual title from DB, or fallback to crop name if missing
+            title: r.title || `${r.crop_name} Update`, 
             content: r.notes,
             image: r.image_url,
             video: r.video_url,
             date: r.created_at,
             crop_name: r.crop_name,
-            location: r.location, // Send location to frontend
+            location: r.location, 
             stats: {
                 height: r.plant_height,
                 leaves: r.leaf_count,
@@ -157,7 +160,7 @@ app.get('/api/posts', (req, res) => {
 
 app.post('/api/posts', (req, res) => {
     const { 
-        content, image, video, 
+        title, content, image, video, 
         crop_name, location, height, leaves, 
         plant_count, rejected_count, harvest_kg,
         temp, humid, lux, ph, ec 
@@ -166,12 +169,13 @@ app.post('/api/posts', (req, res) => {
     const finalCrop = crop_name || 'General'; 
 
     const sql = `INSERT INTO crop_logs (
-        crop_name, location, notes, image_url, video_url, 
+        title, crop_name, location, notes, image_url, video_url, 
         plant_height, leaf_count, plant_count, rejected_count, harvest_amount_kg,
         air_temp, humidity, light_lux, ph_level, ec_level
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     
     const values = [
+        title || 'New Entry', // FIX: Save the actual title
         finalCrop, location || 'General', content, image || '', video || '',
         height || 0, leaves || 0, plant_count || 0, rejected_count || 0, harvest_kg || 0,
         temp || 0, humid || 0, lux || 0, ph || 0, ec || 0
@@ -180,13 +184,11 @@ app.post('/api/posts', (req, res) => {
     db.run(sql, values, function(err) {
         if (err) return res.status(500).json({ error: err.message });
         
-        // AUTO-UPDATE MAP: If a location was selected, update the farm_systems table
+        // AUTO-UPDATE MAP
         if (location && location !== 'General') {
             db.run(`UPDATE farm_systems SET current_crop = ?, status = 'Active' WHERE system_code = ?`, 
                 [finalCrop, location], 
-                (updateErr) => {
-                    if (updateErr) console.error("Map update failed:", updateErr);
-                }
+                (updateErr) => { if (updateErr) console.error("Map update failed:", updateErr); }
             );
         }
 
