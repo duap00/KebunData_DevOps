@@ -5,37 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KebunData | Golden Harvest</title>
     
-    <!-- 1. React Libraries -->
+    <!-- FAVICON: Adds logo to browser tab -->
+    <link rel="icon" type="image/png" href="KebunData_logo-LG (2).png">
+    
+    <!-- Libraries -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- 2. Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- 3. Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap" rel="stylesheet">
-
-    <!-- 4. Design System Config -->
+    <!-- Design System -->
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: {
-                        primary: '#2B3F34',
-                        secondary: '#5D8A66',
-                        accent: '#D4A056',
-                        canvas: '#F4F6F5',
-                        surface: '#FFFFFF',
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        serif: ['Merriweather', 'serif'],
-                    },
-                    boxShadow: {
-                        'soft-green': '0 20px 40px -10px rgba(43, 63, 52, 0.08)',
-                        'floating': '0 13px 21px -5px rgba(43, 63, 52, 0.05)'
-                    }
+                    colors: { primary: '#2B3F34', secondary: '#5D8A66', accent: '#D4A056', canvas: '#F4F6F5', surface: '#FFFFFF' },
+                    fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Merriweather', 'serif'] },
+                    boxShadow: { 'soft-green': '0 20px 40px -10px rgba(43, 63, 52, 0.08)', 'floating': '0 13px 21px -5px rgba(43, 63, 52, 0.05)' }
                 }
             }
         }
@@ -48,16 +34,37 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #E0E2E1; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #D4A056; }
+        .typing-cursor::after { content: '|'; animation: blink 1s step-start infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
+    <!-- CRASH REPORTER (Prevents Blank White Screen) -->
+    <div id="error-display" style="display:none; padding: 20px; background: #fee; border: 1px solid red; color: red; position: fixed; top: 0; left: 0; width: 100%; z-index: 9999;"></div>
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            document.getElementById('error-display').style.display = 'block';
+            document.getElementById('error-display').innerHTML = `<strong>⚠️ System Error:</strong><br>${message}<br><small>${source}:${lineno}</small>`;
+        };
+    </script>
+
     <script type="text/babel">
         const { useState, useEffect } = React;
-
-        // --- SMART CONFIG ---
         const API_URL = `http://${window.location.hostname}:3000/api/posts`;
+        
+        // --- API KEY SECTION ---
+        // PASTE YOUR GEMINI API KEY HERE:
+        const apiKey = "AIzaSyCVzFdzP-pGdYQkRrG3NwzH93-Sv68RYsY"; 
+
+        // --- CROP DATA ---
+        const CROP_SCHEDULE = {
+            'Kale': { 'Sowing': 3, 'Germination': 7, 'Seedling': 21, 'Vegetative': 55, 'Harvest': 70 },
+            'Spinach': { 'Sowing': 5, 'Germination': 10, 'Seedling': 20, 'Vegetative': 35, 'Harvest': 45 },
+            'Lettuce': { 'Sowing': 2, 'Germination': 7, 'Seedling': 20, 'Vegetative': 40, 'Harvest': 55 },
+            'Chili': { 'Sowing': 7, 'Germination': 14, 'Seedling': 35, 'Vegetative': 75, 'Harvest': 100 }
+        };
 
         // --- ICONS ---
         const Icons = {
@@ -67,109 +74,87 @@
             Send: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>,
             Trash: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
             Share: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>,
-            Wifi: ({on}) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={on ? "#5D8A66" : "#EF4444"} strokeWidth="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+            Wifi: ({on}) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={on ? "#5D8A66" : "#EF4444"} strokeWidth="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>,
+            Seed: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22c4.97 0 9-4.03 9-9 0-4.97-9-13-9-13s-9 8.03-9 13c0 4.97 4.03 9 9 9z"/></svg>,
+            Sparkles: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M9 3v4"/><path d="M3 7h4"/></svg>,
+            Calendar: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
         };
 
-        // --- DATA SERVICE ---
         const DataService = {
             fetch: async () => { try { return await(await fetch(API_URL)).json(); } catch(e){ return null; } },
             add: async (p) => await fetch(API_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p) }),
             del: async (id) => await fetch(`${API_URL}/${id}`, { method:'DELETE' })
         };
 
-        // --- COMPONENTS ---
+        const AIService = {
+            askAgronomist: async (crop, stage, notes) => {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: `Act as expert agricultural consultant for ${crop} at ${stage} stage. Notes: ${notes}. Give 3 actionable tips.` }] }] })
+                    });
+                    const data = await response.json();
+                    return data.candidates?.[0]?.content?.parts?.[0]?.text || "AI unavailable.";
+                } catch (error) { return "Connection Error."; }
+            }
+        };
 
         const NavItem = ({ active, icon: Icon, label, onClick }) => (
-            <button 
-                onClick={onClick}
-                className={`w-full flex items-center gap-4 px-6 py-4 transition-all duration-300 group ${active ? 'bg-surface shadow-floating translate-x-2 rounded-xl' : 'hover:bg-primary/50'}`}
-            >
+            <button onClick={onClick} className={`w-full flex items-center gap-4 px-6 py-4 transition-all duration-300 group ${active ? 'bg-surface shadow-floating translate-x-2 rounded-xl' : 'hover:bg-primary/50'}`}>
                 <span className={`${active ? 'text-primary' : 'text-white/60 group-hover:text-white'}`}><Icon /></span>
                 <span className={`font-medium tracking-wide ${active ? 'text-primary' : 'text-white/80 group-hover:text-white'}`}>{label}</span>
             </button>
         );
 
-        const StatCard = ({ label, value, unit, trend, trendGood }) => (
-            <div className="bg-surface p-8 rounded-xl shadow-soft-green hover:shadow-lg transition-all duration-300 border border-white/50">
-                <h3 className="text-secondary text-sm font-semibold uppercase tracking-wider mb-3">{label}</h3>
-                <div className="flex items-baseline gap-2">
-                    <span className="text-[42px] font-serif font-light text-primary leading-none">{value}</span>
-                    <span className="text-gray-400 font-medium">{unit}</span>
-                </div>
-                {trend && (
-                    <div className={`mt-4 text-sm font-medium flex items-center gap-1 ${trendGood ? 'text-secondary' : 'text-orange-400'}`}>
-                        {trendGood ? '↑' : '↓'} {trend}
-                    </div>
-                )}
-            </div>
-        );
-
-        const JournalEntry = ({ post, onDelete, onShare }) => (
-            <div className="relative pl-8 md:pl-12 py-2 group fade-in">
-                <div className="absolute left-[11px] top-0 bottom-0 w-[2px] bg-secondary/20 group-hover:bg-accent/50 transition-colors"></div>
-                <div className="absolute left-0 top-8 w-6 h-6 rounded-full border-4 border-canvas bg-white shadow-sm z-10 group-hover:border-accent transition-colors"></div>
-
-                <div className="bg-surface rounded-xl shadow-floating p-6 md:p-8 hover:-translate-y-1 transition-transform duration-300">
-                    <div className="flex justify-between items-start mb-4">
-                        <div>
-                            <span className="text-accent text-xs font-bold uppercase tracking-widest">{new Date(post.date).toLocaleDateString(undefined, {month:'long', day:'numeric'})}</span>
-                            <h3 className="text-2xl font-serif text-primary mt-1">{post.title}</h3>
-                        </div>
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => onShare(post)} className="p-2 hover:bg-canvas rounded-full text-gray-400 hover:text-primary"><Icons.Share /></button>
-                            <button onClick={() => onDelete(post.id)} className="p-2 hover:bg-red-50 rounded-full text-gray-400 hover:text-red-500"><Icons.Trash /></button>
-                        </div>
-                    </div>
-                    <p className="text-gray-600 leading-relaxed font-serif text-lg">{post.content}</p>
-                    {(post.image || post.video) && (
-                        <div className="mt-6 rounded-lg overflow-hidden shadow-inner bg-canvas">
-                            {post.image && <img src={post.image} className="w-full h-auto object-cover max-h-[500px]" onError={(e) => e.target.style.display='none'} />}
-                            {post.video && (
-                                <div className="p-4 flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary">▶</div>
-                                    <a href={post.video} target="_blank" className="text-primary hover:text-accent underline decoration-1 underline-offset-4">{post.video}</a>
+        const JournalEntry = ({ post, onDelete, onShare }) => {
+            const isCropLog = post.crop_name || (post.title && post.title.includes('Kale')); 
+            return (
+                <div className="relative pl-8 md:pl-12 py-2 group fade-in">
+                    <div className="absolute left-[11px] top-0 bottom-0 w-[2px] bg-secondary/20 group-hover:bg-accent/50 transition-colors"></div>
+                    <div className="absolute left-0 top-8 w-6 h-6 rounded-full border-4 border-canvas bg-white shadow-sm z-10 group-hover:border-accent transition-colors"></div>
+                    <div className="bg-surface rounded-xl shadow-floating p-6 md:p-8 hover:-translate-y-1 transition-transform duration-300">
+                        <div className="flex justify-between items-start mb-4">
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-accent text-xs font-bold uppercase tracking-widest">{new Date(post.date).toLocaleDateString()}</span>
+                                    {isCropLog && <span className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Kale Experiment</span>}
                                 </div>
-                            )}
+                                <h3 className="text-2xl font-serif text-primary mt-1">{post.title}</h3>
+                            </div>
+                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => onShare(post)} className="p-2 hover:bg-canvas text-gray-400 hover:text-primary"><Icons.Share /></button>
+                                <button onClick={() => onDelete(post.id)} className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-500"><Icons.Trash /></button>
+                            </div>
                         </div>
-                    )}
+                        <p className="text-gray-600 leading-relaxed font-serif text-lg whitespace-pre-wrap">{post.content}</p>
+                        {(post.image || post.video) && (
+                            <div className="mt-6 rounded-lg overflow-hidden shadow-inner bg-canvas">
+                                {post.image && <img src={post.image} className="w-full h-auto object-cover max-h-[500px]" onError={(e) => e.target.style.display='none'} />}
+                                {post.video && <div className="p-4 flex items-center gap-3"><div className="w-10 h-10 bg-primary/10 rounded-full flex justify-center items-center text-primary">▶</div><a href={post.video} target="_blank" className="text-primary hover:text-accent underline">{post.video}</a></div>}
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
-        );
+            );
+        };
 
-        // --- UPDATED SHARE MODAL ---
         const ShareModal = ({ post, onClose }) => {
             const shareText = encodeURIComponent(`${post.title}\n\n${post.content}`);
-            const shareUrl = encodeURIComponent(window.location.href);
-
             const platforms = [
                 { name: 'WhatsApp', color: 'bg-green-500', url: `https://wa.me/?text=${shareText}` },
-                { name: 'Facebook', color: 'bg-blue-600', url: `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}&quote=${shareText}` },
-                { name: 'X / Twitter', color: 'bg-black', url: `https://twitter.com/intent/tweet?text=${shareText}&url=${shareUrl}` },
-                // ADDED THREADS SUPPORT
+                { name: 'Facebook', color: 'bg-blue-600', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}&quote=${shareText}` },
+                { name: 'X / Twitter', color: 'bg-black', url: `https://twitter.com/intent/tweet?text=${shareText}&url=${encodeURIComponent(window.location.href)}` },
                 { name: 'Threads', color: 'bg-neutral-800', url: `https://www.threads.net/intent/post?text=${shareText}` }
             ];
-
             return (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden animate-fade-in">
-                        <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-                            <h3 className="font-bold text-gray-700">Share Post</h3>
-                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><Icons.Menu /></button>
-                        </div>
+                        <div className="p-4 border-b flex justify-between items-center bg-gray-50"><h3 className="font-bold text-gray-700">Share Post</h3><button onClick={onClose} className="text-gray-400 hover:text-gray-600"><Icons.Trash /></button></div>
                         <div className="p-6 space-y-3">
-                            <p className="text-sm text-gray-500 mb-4">Choose a platform to broadcast your update:</p>
-                            {platforms.map(p => (
-                                <a 
-                                    key={p.name} 
-                                    href={p.url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className={`block w-full text-center py-3 rounded-lg text-white font-medium hover:opacity-90 transition-opacity ${p.color}`}
-                                    onClick={onClose}
-                                >
-                                    Share on {p.name}
-                                </a>
-                            ))}
+                            <p className="text-sm text-gray-500 mb-4">Choose a platform:</p>
+                            {platforms.map(p => (<a key={p.name} href={p.url} target="_blank" rel="noopener noreferrer" className={`block w-full text-center py-3 rounded-lg text-white font-medium hover:opacity-90 transition-opacity ${p.color}`} onClick={onClose}>Share on {p.name}</a>))}
                         </div>
                     </div>
                 </div>
@@ -180,24 +165,47 @@
             const [view, setView] = useState('journal');
             const [posts, setPosts] = useState([]);
             const [online, setOnline] = useState(false);
-            const [newPost, setNewPost] = useState({ title: '', content: '', image: '', video: '' });
-            const [sharePost, setSharePost] = useState(null); 
+            const [sharePost, setSharePost] = useState(null);
+            const [newPost, setNewPost] = useState({ title: '', content: '', image: '', video: '', crop: 'Kale', stage: 'Germination' });
+            const [aiAdvice, setAiAdvice] = useState('');
+            const [isAiLoading, setIsAiLoading] = useState(false);
 
             const load = async () => {
                 const data = await DataService.fetch();
-                if (data) {
-                    setPosts(data.map(p => ({ id: p.ID, title: p.TITLE, content: p.CONTENT, image: p.IMAGE_URL, video: p.VIDEO_URL, date: p.CREATED_AT })));
+                if (data && Array.isArray(data)) {
+                    setPosts(data.map(p => ({ id: p.id, title: p.title, content: p.content, image: p.image, video: p.video, date: p.date, crop_name: p.crop_name })));
                     setOnline(true);
-                } else setOnline(false);
+                } else {
+                    setOnline(false);
+                }
             };
+
+            const daysToFinish = CROP_SCHEDULE[newPost.crop]?.[newPost.stage] || 0;
+            const finishDate = new Date();
+            finishDate.setDate(finishDate.getDate() + daysToFinish);
+            const finishDateStr = finishDate.toLocaleDateString(undefined, {month:'long', day:'numeric'});
 
             useEffect(() => { load(); const i = setInterval(load, 5000); return () => clearInterval(i); }, []);
 
             const handleSubmit = async (e) => {
                 e.preventDefault();
-                await DataService.add(newPost);
-                setNewPost({ title: '', content: '', image: '', video: '' });
+                const contentWithSchedule = `${newPost.content}\n\n📅 Estimated Finish: ${finishDateStr}`;
+                await DataService.add({ 
+                    ...newPost, 
+                    title: `[${newPost.crop}] ${newPost.title} (${newPost.stage})`,
+                    content: contentWithSchedule 
+                });
+                setNewPost({ title: '', content: '', image: '', video: '', crop: 'Kale', stage: 'Germination' });
+                setAiAdvice('');
                 load();
+            };
+
+            const handleAskAI = async () => {
+                if (!newPost.content) return alert("Write observation notes first!");
+                setIsAiLoading(true);
+                const advice = await AIService.askAgronomist(newPost.crop, newPost.stage, newPost.content);
+                setAiAdvice(advice);
+                setIsAiLoading(false);
             };
 
             return (
@@ -205,12 +213,7 @@
                     <aside className="w-full md:w-[280px] bg-primary text-white flex flex-col justify-between sticky top-0 h-auto md:h-screen z-20 shadow-2xl">
                         <div className="p-8">
                             <div className="flex items-center gap-4 mb-12">
-                                <img 
-                                    src="KebunData_logo-LG.png" 
-                                    alt="Logo" 
-                                    className="w-12 h-12 rounded-xl object-cover bg-white/10 shadow-sm"
-                                    onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} 
-                                />
+                                <img src="KebunData_logo-LG (2).png" alt="Logo" className="w-12 h-12 rounded-xl object-cover bg-white/10 shadow-sm" onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
                                 <div className="w-12 h-12 bg-secondary rounded-xl items-center justify-center text-white hidden"><Icons.Leaf /></div>
                                 <h1 className="text-2xl font-serif font-bold tracking-tight">KebunData</h1>
                             </div>
@@ -219,65 +222,51 @@
                                 <NavItem active={view === 'journal'} icon={Icons.Book} label="Farm Journal" onClick={() => setView('journal')} />
                             </nav>
                         </div>
-                        <div className="p-8 border-t border-white/10">
-                            <div className="flex items-center gap-3 text-sm text-white/50">
-                                <Icons.Wifi on={online} />
-                                <span>System {online ? 'Online' : 'Offline'}</span>
-                            </div>
-                        </div>
+                        <div className="p-8 border-t border-white/10"><div className="flex items-center gap-3 text-sm text-white/50"><Icons.Wifi on={online} /><span>System {online ? 'Online' : 'Offline'}</span></div></div>
                     </aside>
 
                     <main className="flex-1 p-6 md:p-12 overflow-y-auto h-screen bg-canvas">
-                        <header className="mb-12 max-w-4xl mx-auto">
-                            <h2 className="text-[42px] font-serif text-primary mb-2 fade-in">
-                                {view === 'monitor' ? 'Field Overview' : 'Daily Chronicles'}
-                            </h2>
-                            <p className="text-secondary text-lg fade-in">
-                                {view === 'monitor' ? 'Live metrics from Sector 7' : 'Capture the journey of your harvest.'}
-                            </p>
-                        </header>
-
+                        <header className="mb-12 max-w-4xl mx-auto"><h2 className="text-[42px] font-serif text-primary mb-2 fade-in">{view === 'monitor' ? 'Field Overview' : 'Daily Chronicles'}</h2></header>
                         <div className="max-w-4xl mx-auto">
                             {view === 'monitor' ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 fade-in">
-                                    <StatCard label="Total Harvest" value="1,240" unit="kg" trend="12%" trendGood={true} />
-                                    <StatCard label="Moisture" value="68" unit="%" trend="Optimal" trendGood={true} />
-                                    <StatCard label="Active Nodes" value="24" unit="/ 25" />
-                                </div>
+                                <div className="bg-surface p-8 rounded-xl shadow-soft-green border border-white/50"><h3 className="text-secondary text-sm font-semibold uppercase mb-3">Total Harvest</h3><span className="text-[42px] font-serif text-primary">1,240</span><span className="ml-2 text-gray-400">kg</span></div>
                             ) : (
                                 <div className="space-y-12">
                                     <div className="bg-surface p-8 rounded-xl shadow-soft-green border border-white/50 fade-in">
-                                        <div className="flex items-center justify-between mb-6">
-                                            <h3 className="text-lg font-bold text-primary">New Entry</h3>
-                                            <span className="text-xs text-accent uppercase font-bold tracking-widest">Today</span>
-                                        </div>
+                                        <div className="flex items-center justify-between mb-6"><h3 className="text-lg font-bold text-primary">New Entry</h3><span className="text-xs text-accent uppercase font-bold tracking-widest">Today</span></div>
                                         <form onSubmit={handleSubmit} className="space-y-6">
-                                            <div><input className="w-full text-2xl font-serif placeholder:text-gray-300 border-b border-gray-200 py-2 focus:border-accent focus:outline-none bg-transparent transition-colors" placeholder="Title of your story..." value={newPost.title} onChange={e => setNewPost({...newPost, title: e.target.value})} /></div>
-                                            <div><textarea className="w-full text-lg leading-relaxed placeholder:text-gray-300 border-b border-gray-200 py-2 focus:border-accent focus:outline-none bg-transparent resize-none transition-colors" placeholder="Describe the soil, the weather, the growth..." rows="3" value={newPost.content} onChange={e => setNewPost({...newPost, content: e.target.value})} /></div>
                                             <div className="grid grid-cols-2 gap-6">
-                                                <input className="text-sm bg-canvas p-3 rounded-lg outline-none text-gray-600 focus:ring-1 focus:ring-accent" placeholder="Image URL..." value={newPost.image} onChange={e => setNewPost({...newPost, image: e.target.value})} />
-                                                <input className="text-sm bg-canvas p-3 rounded-lg outline-none text-gray-600 focus:ring-1 focus:ring-accent" placeholder="Video URL..." value={newPost.video} onChange={e => setNewPost({...newPost, video: e.target.value})} />
+                                                <select className="bg-canvas p-3 rounded-lg w-full" value={newPost.crop} onChange={e => setNewPost({...newPost, crop: e.target.value})}><option>Kale</option><option>Spinach</option><option>Lettuce</option><option>Chili</option></select>
+                                                <select className="bg-canvas p-3 rounded-lg w-full" value={newPost.stage} onChange={e => setNewPost({...newPost, stage: e.target.value})}><option>Sowing</option><option>Germination</option><option>Seedling</option><option>Vegetative</option><option>Harvest</option></select>
                                             </div>
-                                            <div className="flex justify-end pt-2">
-                                                <button disabled={!online} className="bg-accent text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all disabled:opacity-50 disabled:shadow-none flex items-center gap-2"><span>Publish</span> <Icons.Send /></button>
+                                            
+                                            {/* SCHEDULE PREVIEW */}
+                                            <div className="bg-primary/5 p-3 rounded-lg flex items-center gap-3 text-sm text-primary">
+                                                <Icons.Calendar />
+                                                <span><strong>{newPost.crop} {newPost.stage}</strong> usually takes {daysToFinish} days. Est. Finish: <strong>{finishDateStr}</strong></span>
                                             </div>
+
+                                            <input className="w-full text-2xl font-serif border-b py-2 bg-transparent" placeholder="Headline" value={newPost.title} onChange={e => setNewPost({...newPost, title: e.target.value})} />
+                                            <textarea className="w-full text-lg border-b py-2 bg-transparent" placeholder="Observations..." rows="3" value={newPost.content} onChange={e => setNewPost({...newPost, content: e.target.value})} />
+                                            
+                                            <div className="flex gap-3">
+                                                <button type="button" onClick={handleAskAI} className="text-sm font-bold text-purple-600 bg-purple-50 px-4 py-2 rounded-lg">{isAiLoading ? '...' : '✨ Ask AI'}</button>
+                                                {aiAdvice && <div className="text-xs text-purple-800 bg-purple-50 p-2 rounded flex-1">{aiAdvice}</div>}
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-2 gap-6"><input className="text-sm bg-canvas p-3 rounded-lg w-full" placeholder="Image URL" value={newPost.image} onChange={e => setNewPost({...newPost, image: e.target.value})} /><input className="text-sm bg-canvas p-3 rounded-lg w-full" placeholder="Video URL" value={newPost.video} onChange={e => setNewPost({...newPost, video: e.target.value})} /></div>
+                                            <div className="flex justify-end pt-2"><button disabled={!online} className="bg-accent text-white px-8 py-3 rounded-xl font-bold">Publish</button></div>
                                         </form>
                                     </div>
-                                    <div className="space-y-0">
-                                        {posts.map(post => (
-                                            <JournalEntry key={post.id} post={post} onDelete={() => {if(confirm('Archive this memory?')) { DataService.del(post.id); load(); }}} onShare={() => setSharePost(post)} />
-                                        ))}
-                                    </div>
+                                    <div className="space-y-0">{posts.map(post => <JournalEntry key={post.id} post={post} onDelete={() => {if(confirm('Delete?')) { DataService.del(post.id); load(); }}} onShare={() => setSharePost(post)} />)}</div>
                                 </div>
                             )}
                         </div>
                     </main>
-
                     {sharePost && <ShareModal post={sharePost} onClose={() => setSharePost(null)} />}
                 </div>
             );
         };
-
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
