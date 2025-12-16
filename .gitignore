@@ -1,0 +1,21 @@
+# Docker volumes (don't commit data)
+*-data/
+prometheus-data/
+grafana-data/
+loki-data/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+.DS_Store
+
+# Environment files with secrets
+.env
+secrets/
+
+# Backup files
+*.tar.gz
+*.zip
