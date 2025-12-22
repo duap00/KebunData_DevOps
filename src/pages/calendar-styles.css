@@ -1,0 +1,23 @@
+/* Force the calendar container to be visible */
+.calendar-container {
+    display: block !important;
+    visibility: visible !important;
+    min-height: 650px !important;
+    background: #1a1a1a;
+    border: 2px solid #D4AF37; /* Gold border to see the box */
+    padding: 10px;
+}
+
+/* Ensure the FullCalendar internal table has colors */
+.fc {
+    background-color: #1a1a1a !important;
+    color: white !important;
+}
+
+.fc-theme-standard td, .fc-theme-standard th {
+    border: 1px solid #444 !important; /* Force grid lines to show */
+}
+
+.fc-toolbar-title {
+    color: #D4AF37 !important;
+}

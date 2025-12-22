@@ -1,0 +1,170 @@
+/* --- 1. THEME VARIABLES --- */
+:root {
+  --primary-green: #2c4035;
+  --bg-grey: #f0f2f5;
+  --accent-gold: #d4af37;
+  --white: #ffffff;
+  --text-main: #1a1a1a;
+  --text-muted: #64748b;
+  --sidebar-w: 260px;
+  --sidebar-collapsed-w: 80px;
+  --header-h: 64px;
+}
+
+/* --- 2. BASE LAYOUT & SCROLL FIX --- */
+* { 
+  box-sizing: border-box; 
+  margin: 0; 
+  padding: 0; 
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden; /* Prevents double scrollbars */
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden; /* Keeps sidebar and main area contained */
+}
+
+/* --- 3. PREMIUM SIDEBAR --- */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--primary-green);
+  color: var(--white);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  flex-shrink: 0;
+  z-index: 100;
+  position: fixed; /* Keep it fixed to the left */
+  left: 0;
+  top: 0;
+}
+
+.sidebar.collapsed {
+  width: var(--sidebar-collapsed-w) !important;
+}
+
+.brand-link {
+  display: flex;
+  align-items: center;
+  padding: 24px;
+  height: var(--header-h);
+  white-space: nowrap;
+}
+
+.sidebar.collapsed .brand-text,
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed .sidebar-version {
+  display: none;
+}
+
+.sidebar-nav a {
+  display: flex;
+  align-items: center;
+  padding: 16px 24px;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  transition: 0.3s;
+  white-space: nowrap;
+}
+
+.sidebar-nav a:hover, .sidebar-nav a.active {
+  color: var(--white);
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 4px solid var(--accent-gold);
+}
+
+/* --- 4. MAIN CONTENT AREA (SCROLL FIX HERE) --- */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  transition: margin-left 0.3s ease;
+  /* margin-left is handled by inline style in App.jsx based on isCollapsed */
+}
+
+.top-bar {
+  height: var(--header-h);
+  background: var(--white);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+  flex-shrink: 0; /* Header never shrinks or scrolls */
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+/* THIS SECTION ALLOWS THE DASHBOARD TO SCROLL */
+.scrollable-content {
+  flex: 1;
+  overflow-y: auto; /* Enable vertical scrolling */
+  padding: 30px;
+  background-color: var(--bg-grey);
+}
+
+/* --- 5. DASHBOARD COMPONENTS --- */
+.iot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-bottom: 30px;
+}
+
+.iot-card {
+  background: var(--white);
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid rgba(0,0,0,0.05);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+}
+
+/* CALENDAR STYLING */
+.calendar-wrapper {
+  background: var(--white);
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px solid rgba(0,0,0,0.05);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+  min-height: 500px;
+}
+
+.fc { /* FullCalendar class */
+  max-height: 700px; 
+}
+
+/* Custom Scrollbar for better looks */
+.scrollable-content::-webkit-scrollbar {
+  width: 8px;
+}
+.scrollable-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+.scrollable-content::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 10px;
+}
+.scrollable-content::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-green);
+}
+
+.menu-btn {
+  cursor: pointer;
+  background: none;
+  border: 1px solid #ddd;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+}
