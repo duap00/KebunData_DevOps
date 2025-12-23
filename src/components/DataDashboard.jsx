@@ -4,12 +4,11 @@ import { supabase } from '../supabaseClient';
 function DataDashboard() {
   const [readings, setReadings] = useState({});
   const [loading, setLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState(null);
 
-  // 1. Initial Fetch
+  // 1. Fetch the latest sensor readings from Supabase
   const fetchLatestSensors = async () => {
     const { data, error } = await supabase
-      .from('sensor_logs')
+      .from('sensor_logs') // Ensure you have this table
       .select('*')
       .order('created_at', { ascending: false })
       .limit(1)
@@ -17,32 +16,18 @@ function DataDashboard() {
 
     if (data) {
       setReadings(data);
-      setLastUpdate(new Date(data.created_at).toLocaleTimeString());
     }
     setLoading(false);
   };
 
   useEffect(() => {
     fetchLatestSensors();
-
-    // 2. REAL-TIME SUBSCRIPTION: Listen for new logs from the Raspberry Pi
-    const sensorSubscription = supabase
-      .channel('live-sensors')
-      .on('postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: 'sensor_logs' }, 
-        (payload) => {
-          console.log('New sensor data received!', payload.new);
-          setReadings(payload.new);
-          setLastUpdate(new Date().toLocaleTimeString());
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(sensorSubscription);
-    };
+    // Optional: Set up an interval to refresh every 30 seconds
+    const interval = setInterval(fetchLatestSensors, 30000);
+    return () => clearInterval(interval);
   }, []);
 
+  // Configuration for your 9 Hydroponic Sensors
   const sensors = [
     { label: 'Water pH', value: readings.ph || '5.8', unit: 'pH', min: 5.5, max: 6.5 },
     { label: 'EC Level', value: readings.ec || '1.4', unit: 'mS/cm', min: 1.2, max: 2.0 },
@@ -58,36 +43,28 @@ function DataDashboard() {
   if (loading) return <div style={{color: '#888', padding: '20px'}}>Connecting to Pi CM4...</div>;
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-        <h3 style={{ fontSize: '0.9rem', color: '#888', margin: 0 }}>LIVE SENSOR FEEDS</h3>
-        <span style={{ fontSize: '0.7rem', color: '#27ae60', fontWeight: 'bold' }}>
-          ● LIVE UPDATING (Last: {lastUpdate})
-        </span>
-      </div>
-
-      <div className="iot-grid">
-        {sensors.map((s, i) => {
-          const isAlert = parseFloat(s.value) < s.min || parseFloat(s.value) > s.max;
-          
-          return (
-            <div key={i} className="iot-card" style={{ border: isAlert ? '1px solid #ff7675' : '1px solid #eee' }}>
-              <div 
-                className="iot-icon-bar" 
-                style={{ backgroundColor: isAlert ? '#ff7675' : (i % 2 === 0 ? 'var(--accent-gold)' : 'var(--primary-green)') }}
-              ></div>
-              <div className="iot-info">
-                <span className="iot-label">
-                  {s.label} {isAlert && <span title="Out of Range">⚠️</span>}
-                </span>
-                <div className="iot-value" style={{ color: isAlert ? '#d63031' : 'inherit' }}>
-                  {s.value}<span className="iot-unit">{s.unit}</span>
-                </div>
+    <div className="iot-grid">
+      {sensors.map((s, i) => {
+        // Productivity Logic: Check if value is out of healthy range
+        const isAlert = parseFloat(s.value) < s.min || parseFloat(s.value) > s.max;
+        
+        return (
+          <div key={i} className="iot-card" style={{ border: isAlert ? '1px solid #ff7675' : '1px solid #eee' }}>
+            <div 
+              className="iot-icon-bar" 
+              style={{ backgroundColor: isAlert ? '#ff7675' : (i % 2 === 0 ? 'var(--accent-gold)' : 'var(--primary-green)') }}
+            ></div>
+            <div className="iot-info">
+              <span className="iot-label">
+                {s.label} {isAlert && <span title="Out of Range">⚠️</span>}
+              </span>
+              <div className="iot-value" style={{ color: isAlert ? '#d63031' : 'inherit' }}>
+                {s.value}<span className="iot-unit">{s.unit}</span>
               </div>
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
