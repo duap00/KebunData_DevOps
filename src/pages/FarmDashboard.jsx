@@ -74,6 +74,21 @@ function FarmDashboard() {
     const { error } = await supabase.from('batches').update({ status: nextStatus }).eq('id', batch.id);
     if (!error) fetchBatches();
   };
+  const deleteBatch = async (id) => {
+    const confirmDelete = window.confirm("Are you sure you want to remove this batch?");
+    if (confirmDelete) {
+      const { error } = await supabase
+        .from('batches')
+        .delete()
+        .eq('id', id);
+      
+      if (!error) {
+        fetchBatches();
+      } else {
+        alert("Error deleting batch: " + error.message);
+      }
+    }
+  };
 
   return (
     <div style={{ padding: '10px' }}>
@@ -136,11 +151,24 @@ function FarmDashboard() {
               <div key={stage} style={columnStyle}>
                 <div style={{ ...stageHeader, background: getStatusColor(stage) }}>{stage}</div>
                 {batches.filter(b => b.status === stage).map(b => (
-                  <div key={b.id} style={batchItem}>
-                    <span>{b.crops?.name}</span>
-                    <button onClick={() => moveStatus(b)} style={nextBtn}>⮕</button>
-                  </div>
-                ))}
+  <div key={b.id} style={batchItem}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <span style={{ fontWeight: 'bold' }}>{b.crops?.name}</span>
+      <span style={{ fontSize: '0.6rem', color: '#999' }}>ID: {b.id.toString().slice(0,4)}</span>
+    </div>
+    <div style={{ display: 'flex', gap: '4px' }}>
+      {/* DELETE BUTTON */}
+      <button 
+        onClick={() => deleteBatch(b.id)} 
+        style={{ ...nextBtn, color: 'red', fontWeight: 'bold' }}
+      >
+        ✕
+      </button>
+      {/* MOVE BUTTON */}
+      <button onClick={() => moveStatus(b)} style={nextBtn}>⮕</button>
+    </div>
+  </div>
+))}
               </div>
             ))}
           </div>
