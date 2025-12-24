@@ -1,91 +1,83 @@
-import React, { useEffect, useState } from 'react';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import { supabase } from '../supabaseClient';
+import React from 'react';
+import { Link } from 'react-router-dom';
 
-function HomePage() {
-  const [events, setEvents] = useState([]);
-
-  // Fetch data from Supabase
-  const fetchPlantings = async () => {
-    const { data, error } = await supabase
-      .from('plantings')
-      .select('*, crops(name)');
-
-    if (data) {
-      const formatted = data.map(p => ({
-        title: `🌱 Harvest: ${p.crops?.name || 'Kale'}`,
-        start: p.harvest_date, 
-        backgroundColor: '#D4AF37', 
-        borderColor: '#D4AF37',
-        textColor: '#000'
-      }));
-      setEvents(formatted);
-    }
-  };
-
-  useEffect(() => { fetchPlantings(); }, []);
-
-  // Function to add new planting
-  const plantKale = async () => {
-    const { error } = await supabase.from('plantings').insert([{ crop_id: 1 }]);
-    if (!error) fetchPlantings();
-  };
-
+const HomePage = () => {
   return (
-    <div className="dashboard-home" style={{ padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h2 style={{ color: 'var(--primary-green)', margin: 0 }}>Farm Overview</h2>
-        <button 
-          onClick={plantKale}
-          style={{ 
-            background: 'var(--accent-gold)', 
-            border: 'none', padding: '10px 20px', 
-            borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' 
-          }}
-        >
-          + Plant New Kale
-        </button>
-      </div>
-      
-      <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.2fr', gap: '30px' }}>
-        
-        {/* LEFT COLUMN: SYSTEM STATUS */}
-        <div className="status-column">
-           <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '15px' }}>SYSTEM STATUS</h3>
-           <div style={{ background: 'white', padding: '25px', borderRadius: '15px', border: '1px solid #eee' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-                 <span>Hydroponic Pump</span>
-                 <strong style={{ color: 'var(--primary-green)' }}>● RUNNING</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                 <span>Nutrient Solution</span>
-                 <strong style={{ color: 'var(--accent-gold)' }}>● 65% CAPACITY</strong>
-              </div>
-           </div>
+    <div className="landing-page">
+      {/* 1. HERO SECTION: The Vision */}
+      <section className="hero-section">
+        <div className="hero-text">
+          <span className="badge">Smart Agriculture IoT</span>
+          <h1>Transforming Agriculture with <span>Real-Time Data</span></h1>
+          <p>
+            Automate your farm, monitor nutrients instantly, and achieve higher yields 
+            with our industrial-grade CM4 monitoring system.
+          </p>
+          <div className="hero-actions">
+            <Link to="/dashboard" className="btn-primary">Explore Dashboard</Link>
+            <a href="#about" className="btn-outline">Learn More</a>
+          </div>
         </div>
-
-        {/* RIGHT COLUMN: LIVE CALENDAR */}
-        <div className="calendar-column">
-           <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '15px' }}>FARM CALENDAR</h3>
-           <div style={{ background: 'white', padding: '20px', borderRadius: '15px', border: '1px solid #eee', minHeight: '500px' }}>
-              <FullCalendar
-                plugins={[dayGridPlugin]}
-                initialView="dayGridMonth"
-                events={events}
-                height="500px"
-                headerToolbar={{
-                  left: 'prev,next',
-                  center: 'title',
-                  right: 'today'
-                }}
-              />
-           </div>
+        <div className="hero-image">
+          {/* Replace this URL with a photo of your actual ZipGrow/Aeroponic setup */}
+          <img 
+            src="https://images.unsplash.com/photo-1558449028-b53a39d100fc?auto=format&fit=crop&q=80&w=1000" 
+            alt="Smart Greenhouse" 
+          />
         </div>
+      </section>
 
-      </div>
+      {/* 2. PRODUCT SECTION: The Quality */}
+      <section id="about" className="product-section">
+        <div className="product-image">
+          {/* Replace with a photo of your healthy plants/Kale */}
+          <img 
+            src="https://images.unsplash.com/photo-1524486361537-8ad15938e1a3?auto=format&fit=crop&q=80&w=1000" 
+            alt="Healthy Plant Growth" 
+          />
+        </div>
+        <div className="product-text">
+          <h2>The Future of Farming is Here</h2>
+          <p>
+            Traditional farming faces challenges in nutrient consistency and water waste. 
+            <strong> KebunData</strong> provides a reliable system to eliminate the guesswork, 
+            ensuring your crops get exactly what they need, when they need it.
+          </p>
+          <ul className="benefit-list">
+            <li>✅ Precise water & nutrient control</li>
+            <li>✅ Reduced labor and resource waste</li>
+            <li>✅ Increased yield and crop quality</li>
+          </ul>
+        </div>
+      </section>
+
+      {/* 3. HOW IT WORKS: The Service */}
+      <section className="how-it-works">
+        <h3>How it Works</h3>
+        <div className="service-grid">
+          <div className="service-card">
+            <span className="icon">📊</span>
+            <h4>Smart Dashboard</h4>
+            <p>Monitor pH, EC, and Temperature from any mobile device or PC.</p>
+          </div>
+          <div className="service-card">
+            <span className="icon">📈</span>
+            <h4>Analytics</h4>
+            <p>Track growth cycles and historical trends to optimize your harvest.</p>
+          </div>
+          <div className="service-card">
+            <span className="icon">⚙️</span>
+            <h4>Remote Control</h4>
+            <p>Manage pump schedules and staging pipelines automatically.</p>
+          </div>
+        </div>
+      </section>
+
+      <footer className="landing-footer">
+        <p>© 2024 KebunData. All rights reserved.</p>
+      </footer>
     </div>
   );
-}
+};
 
 export default HomePage;
