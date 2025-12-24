@@ -2,71 +2,84 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 
 function DataDashboard() {
-  const [readings, setReadings] = useState({});
-  const [loading, setLoading] = useState(true);
-
-  // 1. Fetch the latest sensor readings from Supabase
-  const fetchLatestSensors = async () => {
-    const { data, error } = await supabase
-      .from('sensor_logs') // Ensure you have this table
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (data) {
-      setReadings(data);
-    }
-    setLoading(false);
-  };
+  const [data, setData] = useState(null);
+  const isMobile = window.innerWidth < 768;
 
   useEffect(() => {
-    fetchLatestSensors();
-    // Optional: Set up an interval to refresh every 30 seconds
-    const interval = setInterval(fetchLatestSensors, 30000);
-    return () => clearInterval(interval);
+    fetchLatestData();
+    // Real-time subscription for live CM4 updates
+    const sub = supabase
+      .channel('schema-db-changes')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sensor_logs' }, 
+        payload => setData(payload.new)
+      )
+      .subscribe();
+    return () => supabase.removeChannel(sub);
   }, []);
 
-  // Configuration for your 9 Hydroponic Sensors
-  const sensors = [
-    { label: 'Water pH', value: readings.ph || '5.8', unit: 'pH', min: 5.5, max: 6.5 },
-    { label: 'EC Level', value: readings.ec || '1.4', unit: 'mS/cm', min: 1.2, max: 2.0 },
-    { label: 'Water Temp', value: readings.w_temp || '22', unit: '°C', min: 18, max: 24 },
-    { label: 'Water Level', value: readings.w_level || '85', unit: '%', min: 20, max: 100 },
-    { label: 'Dissolved O₂', value: readings.do2 || '8.2', unit: 'mg/L', min: 5.0, max: 10.0 },
-    { label: 'TDS (PPM)', value: readings.tds || '700', unit: 'ppm', min: 500, max: 1200 },
-    { label: 'Air Temp', value: readings.a_temp || '26', unit: '°C', min: 20, max: 30 },
-    { label: 'Air Humidity', value: readings.humidity || '60', unit: '%', min: 40, max: 70 },
-    { label: 'Light (PPFD)', value: readings.ppfd || '450', unit: 'μmol', min: 300, max: 800 }
-  ];
+  const fetchLatestData = async () => {
+    const { data } = await supabase
+      .from('sensor_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (data) setData(data[0]);
+  };
 
-  if (loading) return <div style={{color: '#888', padding: '20px'}}>Connecting to Pi CM4...</div>;
+  if (!data) return <div style={{ textAlign: 'center', padding: '20px' }}>Connecting to CM4 Sensors...</div>;
+
+  // Helper to render a card with color safety zones
+  const SensorCard = ({ label, value, unit, min, max, color }) => {
+    const isOutRange = value < min || value > max;
+    return (
+      <div style={{
+        ...cardStyle,
+        borderTop: `5px solid ${isOutRange ? '#e74c3c' : color}`,
+        background: isOutRange ? '#fff5f5' : 'white'
+      }}>
+        <div style={labelStyle}>{label}</div>
+        <div style={valueStyle}>{value}<span style={unitStyle}>{unit}</span></div>
+        <div style={{ fontSize: '0.65rem', color: isOutRange ? '#e74c3c' : '#999' }}>
+          {isOutRange ? '⚠️ CHECK SYSTEM' : `Target: ${min}-${max}`}
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className="iot-grid">
-      {sensors.map((s, i) => {
-        // Productivity Logic: Check if value is out of healthy range
-        const isAlert = parseFloat(s.value) < s.min || parseFloat(s.value) > s.max;
-        
-        return (
-          <div key={i} className="iot-card" style={{ border: isAlert ? '1px solid #ff7675' : '1px solid #eee' }}>
-            <div 
-              className="iot-icon-bar" 
-              style={{ backgroundColor: isAlert ? '#ff7675' : (i % 2 === 0 ? 'var(--accent-gold)' : 'var(--primary-green)') }}
-            ></div>
-            <div className="iot-info">
-              <span className="iot-label">
-                {s.label} {isAlert && <span title="Out of Range">⚠️</span>}
-              </span>
-              <div className="iot-value" style={{ color: isAlert ? '#d63031' : 'inherit' }}>
-                {s.value}<span className="iot-unit">{s.unit}</span>
-              </div>
-            </div>
-          </div>
-        );
-      })}
+    <div style={containerGrid}>
+      <SensorCard label="Water pH" value={data.ph} unit="" min={5.5} max={6.5} color="#3498db" />
+      <SensorCard label="EC (Nutrients)" value={data.ec} unit=" mS" min={1.2} max={2.5} color="#f1c40f" />
+      <SensorCard label="Water Temp" value={data.water_temp} unit="°C" min={18} max={24} color="#2ecc71" />
+      <SensorCard label="Room Temp" value={data.air_temp} unit="°C" min={22} max={28} color="#e67e22" />
+      <SensorCard label="Humidity" value={data.humidity} unit="%" min={40} max={70} color="#9b59b6" />
+      <SensorCard label="CO2 Level" value={data.co2} unit=" ppm" min={400} max={1200} color="#1abc9c" />
+      <SensorCard label="Light" value={data.lux} unit=" lux" min={5000} max={15000} color="#f39c12" />
+      <SensorCard label="TDS" value={data.tds} unit=" ppm" min={600} max={1200} color="#34495e" />
+      <SensorCard label="Water Level" value={data.water_level} unit="%" min={20} max={100} color="#2980b9" />
     </div>
   );
 }
+
+// --- RESPONSIVE STYLES ---
+const containerGrid = {
+  display: 'grid',
+  // On mobile: 2 columns. On tablet: 3 columns. On desktop: 4-5 columns.
+  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+  gap: '12px',
+  width: '100%'
+};
+
+const cardStyle = {
+  padding: '15px 10px',
+  borderRadius: '12px',
+  boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+  textAlign: 'center',
+  transition: 'transform 0.2s'
+};
+
+const labelStyle = { fontSize: '0.7rem', fontWeight: 'bold', color: '#888', textTransform: 'uppercase', marginBottom: '5px' };
+const valueStyle = { fontSize: '1.6rem', fontWeight: 'bold', color: '#2c3e50' };
+const unitStyle = { fontSize: '0.8rem', marginLeft: '2px', color: '#7f8c8d' };
 
 export default DataDashboard;

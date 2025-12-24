@@ -4,23 +4,28 @@ import { supabase } from '../supabaseClient';
 function CropSettings() {
   const [crops, setCrops] = useState([]);
   const [newCropName, setNewCropName] = useState('');
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  useEffect(() => { fetchCrops(); }, []);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    fetchCrops();
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const fetchCrops = async () => {
     const { data } = await supabase.from('crops').select('*').order('name');
     if (data) setCrops(data);
   };
 
-  // 1. ADD NEW CROP FUNCTION
   const addCrop = async (e) => {
     e.preventDefault();
     if (!newCropName) return;
 
     const { error } = await supabase.from('crops').insert([{ 
       name: newCropName,
-      sowing_days: 0.02,     // Default 30 mins
-      seedling_days: 3,      // Default 3 days
+      sowing_days: 0.02,
+      seedling_days: 3,
       germination_days: 7,
       vegetative_days: 21,
       harvest_days: 2,
@@ -32,7 +37,6 @@ function CropSettings() {
     } else {
       setNewCropName('');
       fetchCrops();
-      alert(`${newCropName} added to library!`);
     }
   };
 
@@ -41,50 +45,82 @@ function CropSettings() {
     fetchCrops();
   };
 
-  return (
-    <div style={{ padding: '20px' }}>
-      <h2 style={{ color: '#27ae60' }}>🌱 Crop Library & Parameters</h2>
+  const deleteCrop = async (id, name) => {
+    if (window.confirm(`Delete ${name} from library?`)) {
+      await supabase.from('crops').delete().eq('id', id);
+      fetchCrops();
+    }
+  };
 
-      {/* ADD NEW CROP FORM */}
+  return (
+    <div style={{ padding: isMobile ? '10px' : '20px' }}>
+      <h2 style={{ color: '#27ae60', fontSize: isMobile ? '1.2rem' : '1.5rem' }}>🌱 Crop Library</h2>
+
+      {/* RESPONSIVE ADD FORM */}
       <div style={addBoxStyle}>
-        <form onSubmit={addCrop} style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
-          <div>
-            <label style={{ fontSize: '0.8rem', display: 'block' }}>New Crop Name:</label>
+        <form onSubmit={addCrop} style={{ 
+          display: 'flex', 
+          flexDirection: isMobile ? 'column' : 'row', 
+          gap: '10px', 
+          alignItems: isMobile ? 'stretch' : 'flex-end' 
+        }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>New Crop Name</label>
             <input 
               type="text" 
-              placeholder="e.g. Spinach" 
+              placeholder="e.g. Mint" 
               value={newCropName} 
               onChange={e => setNewCropName(e.target.value)} 
               style={inputStyle}
             />
           </div>
-          <button type="submit" style={addBtnStyle}>+ Add to Library</button>
+          <button type="submit" style={addBtnStyle}>+ Add Crop</button>
         </form>
       </div>
 
-      {/* TABLE OF EXISTING CROPS */}
-      <div style={tableContainer}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      {/* RESPONSIVE SCROLLABLE TABLE */}
+      <div style={{ 
+        width: '100%', 
+        overflowX: 'auto', 
+        WebkitOverflowScrolling: 'touch', 
+        background: 'white', 
+        borderRadius: '12px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+        border: '1px solid #eee'
+      }}>
+        <table style={{ minWidth: '800px', width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ background: '#f4f4f4', textAlign: 'left' }}>
-              <th style={tdStyle}>Crop</th>
-              <th style={tdStyle}>Sowing (Days)</th>
-              <th style={tdStyle}>Seedling (Days)</th>
-              <th style={tdStyle}>Veg (Days)</th>
+            <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #eee' }}>
+              <th style={thStyle}>Crop Name</th>
+              <th style={thStyle}>Sowing (Days)</th>
+              <th style={thStyle}>Seedling</th>
+              <th style={thStyle}>Germination</th>
+              <th style={thStyle}>Vegetative</th>
+              <th style={thStyle}>Harvest</th>
+              <th style={thStyle}>Action</th>
             </tr>
           </thead>
           <tbody>
             {crops.map(crop => (
-              <tr key={crop.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={tdStyle}><strong>{crop.name}</strong></td>
+              <tr key={crop.id} style={rowStyle}>
+                <td style={{ ...tdStyle, fontWeight: 'bold', color: '#2c3e50' }}>{crop.name}</td>
                 <td style={tdStyle}>
-                  <input type="number" step="0.01" defaultValue={crop.sowing_days} onBlur={e => handleUpdate(crop.id, 'sowing_days', e.target.value)} style={smallInput} />
+                  <input type="number" step="0.01" defaultValue={crop.sowing_days} onBlur={e => handleUpdate(crop.id, 'sowing_days', e.target.value)} style={tableInput} />
                 </td>
                 <td style={tdStyle}>
-                  <input type="number" defaultValue={crop.seedling_days} onBlur={e => handleUpdate(crop.id, 'seedling_days', e.target.value)} style={smallInput} />
+                  <input type="number" defaultValue={crop.seedling_days} onBlur={e => handleUpdate(crop.id, 'seedling_days', e.target.value)} style={tableInput} />
                 </td>
                 <td style={tdStyle}>
-                  <input type="number" defaultValue={crop.vegetative_days} onBlur={e => handleUpdate(crop.id, 'vegetative_days', e.target.value)} style={smallInput} />
+                  <input type="number" defaultValue={crop.germination_days} onBlur={e => handleUpdate(crop.id, 'germination_days', e.target.value)} style={tableInput} />
+                </td>
+                <td style={tdStyle}>
+                  <input type="number" defaultValue={crop.vegetative_days} onBlur={e => handleUpdate(crop.id, 'vegetative_days', e.target.value)} style={tableInput} />
+                </td>
+                <td style={tdStyle}>
+                  <input type="number" defaultValue={crop.harvest_days} onBlur={e => handleUpdate(crop.id, 'harvest_days', e.target.value)} style={tableInput} />
+                </td>
+                <td style={tdStyle}>
+                  <button onClick={() => deleteCrop(crop.id, crop.name)} style={delBtn}>Remove</button>
                 </td>
               </tr>
             ))}
@@ -95,11 +131,14 @@ function CropSettings() {
   );
 }
 
-const addBoxStyle = { background: 'white', padding: '20px', borderRadius: '12px', marginBottom: '30px', border: '1px solid #eee' };
-const inputStyle = { padding: '10px', borderRadius: '6px', border: '1px solid #ddd', marginTop: '5px' };
-const addBtnStyle = { padding: '10px 20px', background: '#27ae60', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
-const tableContainer = { background: 'white', borderRadius: '12px', border: '1px solid #eee', overflow: 'hidden' };
-const tdStyle = { padding: '15px' };
-const smallInput = { width: '60px', padding: '5px' };
+// STYLES
+const addBoxStyle = { background: 'white', padding: '15px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #eee' };
+const inputStyle = { width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ddd', marginTop: '5px', fontSize: '16px' }; // 16px prevents iOS zoom
+const addBtnStyle = { padding: '12px 20px', background: '#27ae60', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' };
+const thStyle = { padding: '15px', textAlign: 'left', fontSize: '0.75rem', color: '#888', textTransform: 'uppercase' };
+const tdStyle = { padding: '12px 15px', borderBottom: '1px solid #f0f0f0' };
+const rowStyle = { transition: 'background 0.2s' };
+const tableInput = { width: '60px', padding: '8px', border: '1px solid #eee', borderRadius: '4px', textAlign: 'center' };
+const delBtn = { background: '#fff0f0', color: '#e74c3c', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem' };
 
 export default CropSettings;
