@@ -1,96 +1,87 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
+
+// 1. IMPORT YOUR PAGES
 import FarmDashboard from './pages/FarmDashboard';
 import CropSettings from './pages/CropSettings';
+import Analytics from './pages/Analytics';
 
 function App() {
   const location = useLocation();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isOpen, setIsOpen] = useState(false);
 
-  // Update layout when window is resized
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) setIsOpen(true);
+    };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const getLinkStyle = (path) => ({
+  const navLinkStyle = (path) => ({
     textDecoration: 'none',
-    color: location.pathname === path ? '#27ae60' : '#444',
-    background: location.pathname === path ? '#f0fdf4' : 'transparent',
-    padding: isMobile ? '8px 12px' : '12px',
-    borderRadius: '8px',
-    fontWeight: 'bold',
-    fontSize: isMobile ? '0.8rem' : '0.9rem',
-    borderLeft: !isMobile && location.pathname === path ? '4px solid #27ae60' : 'none',
-    borderBottom: isMobile && location.pathname === path ? '3px solid #27ae60' : 'none',
-    whiteSpace: 'nowrap'
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '12px 20px',
+    color: location.pathname === path ? '#white' : 'rgba(255,255,255,0.7)',
+    background: location.pathname === path ? 'rgba(255,255,255,0.1)' : 'transparent',
+    borderLeft: location.pathname === path ? '4px solid #d4af37' : '4px solid transparent',
+    transition: '0.3s'
   });
 
-  // Responsive Styles
-  const sidebarContainerStyle = {
-    width: isMobile ? '100%' : '240px',
-    height: isMobile ? 'auto' : '100vh',
-    position: isMobile ? 'sticky' : 'fixed',
-    top: 0,
-    left: 0,
-    background: 'white',
-    borderRight: isMobile ? 'none' : '1px solid #eee',
-    borderBottom: isMobile ? '1px solid #eee' : 'none',
-    padding: isMobile ? '10px 15px' : '20px',
-    display: 'flex',
-    flexDirection: isMobile ? 'row' : 'column',
-    alignItems: isMobile ? 'center' : 'flex-start',
-    justifyContent: isMobile ? 'space-between' : 'flex-start',
-    zIndex: 1000,
-  };
-
-  const navLinksGroup = {
-    display: 'flex',
-    flexDirection: isMobile ? 'row' : 'column',
-    gap: '10px',
-    marginTop: isMobile ? '0' : '30px',
-    overflowX: isMobile ? 'auto' : 'visible',
-    width: isMobile ? 'auto' : '100%'
-  };
-
   return (
-    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', minHeight: '100vh', background: '#f8f9fa' }}>
+    <div className="app-container">
       
-      {/* RESPONSIVE NAVIGATION */}
-      <nav style={sidebarContainerStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: isMobile ? '1.2rem' : '1.5rem' }}>🌱</span>
-          <h1 style={{ color: '#27ae60', fontSize: isMobile ? '1rem' : '1.2rem', margin: 0 }}>KebunData</h1>
+      {/* SIDEBAR */}
+      <nav className={`sidebar ${isMobile && !isOpen ? 'collapsed' : ''}`} 
+           style={{ display: isMobile && !isOpen ? 'none' : 'flex' }}>
+        <div className="brand-link">
+          <span style={{ fontSize: '1.5rem' }}>🌱</span>
+          <span className="brand-text" style={{ marginLeft: '10px', fontWeight: 'bold' }}>KebunData</span>
         </div>
-        
-        <div style={navLinksGroup}>
-          <Link to="/" style={getLinkStyle('/')}>📊 Dashboard</Link>
-          <Link to="/settings" style={getLinkStyle('/settings')}>⚙️ Settings</Link>
+
+        <div className="sidebar-nav">
+          {/* 2. ADD LINKS TO THE SIDEBAR */}
+          <Link to="/" style={navLinkStyle('/')} onClick={() => isMobile && setIsOpen(false)}>
+            <span>📊</span> <span className="nav-label">Dashboard</span>
+          </Link>
+          
+          <Link to="/analytics" style={navLinkStyle('/analytics')} onClick={() => isMobile && setIsOpen(false)}>
+            <span>📈</span> <span className="nav-label">Analytics</span>
+          </Link>
+          
+          <Link to="/settings" style={navLinkStyle('/settings')} onClick={() => isMobile && setIsOpen(false)}>
+            <span>⚙️</span> <span className="nav-label">Crop Settings</span>
+          </Link>
         </div>
-        
-        {!isMobile && (
-          <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: '#999' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <div style={{ width: '8px', height: '8px', background: '#27ae60', borderRadius: '50%' }}></div>
-              CM4 System Online
-            </div>
-          </div>
-        )}
       </nav>
 
-      {/* CONTENT AREA */}
-      <main style={{ 
-        flex: 1, 
-        marginLeft: isMobile ? '0' : '240px', 
-        padding: isMobile ? '15px' : '30px',
-        marginTop: isMobile ? '10px' : '0'
-      }}>
-        <Routes>
-          <Route path="/" element={<FarmDashboard />} />
-          <Route path="/settings" element={<CropSettings />} />
-        </Routes>
-      </main>
+      {/* MAIN CONTENT AREA */}
+      <div className="main-content" style={{ marginLeft: isMobile ? '0' : '260px' }}>
+        <header className="top-bar">
+          {isMobile && (
+            <button className="menu-btn" onClick={() => setIsOpen(!isOpen)}>
+              {isOpen ? '✕' : '☰'}
+            </button>
+          )}
+          <div style={{ marginLeft: 'auto', color: '#64748b', fontSize: '0.8rem' }}>
+            System Status: <span style={{ color: '#27ae60' }}>● Online</span>
+          </div>
+        </header>
+
+        <main className="scrollable-content">
+          {/* 3. DEFINE THE ROUTES SO THE PAGES ACTUALLY LOAD */}
+          <Routes>
+            <Route path="/" element={<FarmDashboard />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/settings" element={<CropSettings />} />
+          </Routes>
+        </main>
+      </div>
     </div>
   );
 }
