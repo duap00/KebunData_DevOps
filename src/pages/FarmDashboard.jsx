@@ -13,8 +13,6 @@ function FarmDashboard() {
   const [locations, setLocations] = useState([]);
   const [selectedCrop, setSelectedCrop] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
-  
-  // Track window width for responsive adjustments within the dashboard
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   useEffect(() => {
@@ -33,7 +31,7 @@ function FarmDashboard() {
   };
 
   const fetchBatches = async () => {
-    const { data } = await supabase.from('batches').select(`*, crops:crop_id (*)`);
+    const { data } = await supabase.from('batches').select(`*, crops:crop_id (*), locations:location_id (*)`);
     if (data) {
       setBatches(data);
       generateTimeline(data);
@@ -54,7 +52,10 @@ function FarmDashboard() {
 
       sequence.forEach(step => {
         const endDate = new Date(currentStartDate);
-        step.days < 0.1 ? endDate.setMinutes(currentStartDate.getMinutes() + (step.days * 1440)) : endDate.setDate(currentStartDate.getDate() + step.days);
+        step.days < 0.1 
+          ? endDate.setMinutes(currentStartDate.getMinutes() + (step.days * 1440)) 
+          : endDate.setDate(currentStartDate.getDate() + step.days);
+        
         timelineEvents.push({
           title: `${c?.name || 'Crop'}`,
           start: currentStartDate.toISOString(),
@@ -73,26 +74,70 @@ function FarmDashboard() {
     return colors[s] || '#ddd';
   };
 
+  const archiveBatch = async (batch) => {
+    const startDate = new Date(batch.sown_date);
+    const endDate = new Date();
+    const diffDays = Math.ceil(Math.abs(endDate - startDate) / (1000 * 60 * 60 * 24));
+
+    const { error: histError } = await supabase.from('batch_history').insert([{
+      batch_id: batch.id,
+      crop_name: batch.crops?.name,
+      location_name: locations.find(l => l.id === batch.location_id)?.name || 'Unknown',
+      sown_date: batch.sown_date,
+      harvest_date: endDate.toISOString(),
+      total_days: diffDays,
+      status: 'completed'
+    }]);
+
+    if (!histError) {
+      await supabase.from('batches').delete().eq('id', batch.id);
+      fetchBatches();
+      alert(`🎉 ${batch.crops?.name} archived!`);
+    }
+  };
+
   const moveStatus = async (batch) => {
     const currentIndex = STAGES.indexOf(batch.status);
-    if (currentIndex >= STAGES.length - 1) return;
     const nextStatus = STAGES[currentIndex + 1];
+
+    // TRANSPLANT LOGIC: This happens AFTER Germination as you enter Vegetative
+    if (batch.status === 'germination') {
+      const selectElement = document.getElementById(`tower-select-${batch.id}`);
+      const selectedTowerId = selectElement ? selectElement.value : null;
+
+      if (!selectedTowerId) {
+        alert("Please select the target ZipGrow or Aeroponic tower before transplanting!");
+        return;
+      }
+
+      const { error } = await supabase
+        .from('batches')
+        .update({ status: nextStatus, location_id: selectedTowerId })
+        .eq('id', batch.id);
+
+      if (!error) fetchBatches();
+      return;
+    }
+
+    if (currentIndex === STAGES.length - 1) {
+      return archiveBatch(batch);
+    }
+
     const { error } = await supabase.from('batches').update({ status: nextStatus }).eq('id', batch.id);
     if (!error) fetchBatches();
   };
 
+  const removeBatch = async (id, name) => {
+    if (window.confirm(`Permanently remove ${name} batch?`)) {
+      const { error } = await supabase.from('batches').delete().eq('id', id);
+      if (!error) fetchBatches();
+    }
+  };
+
   return (
-    <div style={{ paddingBottom: '50px' }}>
-      
-      {/* RESPONSIVE GRID: 1 column on mobile, 2 columns on desktop */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', 
-        gap: '20px', 
-        marginBottom: '25px' 
-      }}>
-        
-        {/* NEW BATCH FORM */}
+    <div style={{ padding: isMobile ? '10px' : '20px', paddingBottom: '50px' }}>
+      {/* NEW BATCH & CALENDAR ROW */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: '20px', marginBottom: '25px' }}>
         <div style={cardStyle}>
           <h3 style={labelStyle}>🚀 NEW BATCH</h3>
           <select value={selectedCrop} onChange={e => setSelectedCrop(e.target.value)} style={inputStyle}>
@@ -105,40 +150,18 @@ function FarmDashboard() {
           </select>
           <button onClick={async () => {
             const { error } = await supabase.from('batches').insert([{ crop_id: selectedCrop, location_id: selectedLocation, quantity: 1, status: 'sowing', sown_date: new Date().toISOString() }]);
-            if (!error) fetchBatches();
+            if (!error) { fetchBatches(); setSelectedCrop(''); setSelectedLocation(''); }
           }} style={btnStyle}>Initialize Cycle</button>
         </div>
-
-        {/* CALENDAR */}
         <div style={cardStyle}>
-          <FullCalendar 
-            plugins={[dayGridPlugin, timeGridPlugin]} 
-            initialView={isMobile ? "timeGridDay" : "dayGridMonth"} 
-            events={events} 
-            height={isMobile ? 450 : 400} 
-            headerToolbar={{ 
-                left: 'prev,next', 
-                center: 'title', 
-                right: isMobile ? '' : 'dayGridMonth,timeGridDay' 
-            }}
-          />
+          <FullCalendar plugins={[dayGridPlugin, timeGridPlugin]} initialView={isMobile ? "timeGridDay" : "dayGridMonth"} events={events} height={isMobile ? 450 : 400} />
         </div>
       </div>
 
-      {/* FARM MAP & PIPELINE: Stack vertically on mobile */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: isMobile ? '1fr' : '1fr 2.5fr', 
-        gap: '20px' 
-      }}>
-        {/* MAP */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2.5fr', gap: '20px' }}>
         <div style={cardStyle}>
           <h4 style={labelStyle}>📍 FARM MAP</h4>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(2, 1fr)', 
-            gap: '10px' 
-          }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
             {locations.map(loc => {
               const b = batches.find(batch => batch.location_id === loc.id);
               return (
@@ -151,23 +174,40 @@ function FarmDashboard() {
           </div>
         </div>
 
-        {/* STAGING PIPELINE: Horizontal Scroll on Mobile */}
         <div style={cardStyle}>
-          <h4 style={labelStyle}>📋 STAGING</h4>
-          <div style={{ 
-            display: 'flex', 
-            gap: '10px', 
-            overflowX: 'auto', 
-            paddingBottom: '10px',
-            WebkitOverflowScrolling: 'touch' 
-          }}>
+          <h4 style={labelStyle}>📋 PIPELINE</h4>
+          <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '15px' }}>
             {STAGES.map(stage => (
               <div key={stage} style={columnStyle}>
                 <div style={{ ...stageHeader, background: getStatusColor(stage) }}>{stage}</div>
                 {batches.filter(b => b.status === stage).map(b => (
                   <div key={b.id} style={batchItem}>
-                    <span style={{fontWeight: '500'}}>{b.crops?.name}</span>
-                    <button onClick={() => moveStatus(b)} style={nextBtn}>⮕</button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{fontWeight: '700', color: '#2c3e50'}}>{b.crops?.name}</span>
+                      
+                      {/* ONLY SHOW DROPDOWN WHEN BATCH REACHES GERMINATION (PREPARING FOR VEGETATIVE) */}
+                      {b.status === 'germination' && (
+                        <div style={{marginTop: '5px'}}>
+                          <label style={{fontSize: '0.6rem', color: '#666', fontWeight: 'bold'}}>TRANSPLANT TO:</label>
+                          <select id={`tower-select-${b.id}`} style={smallDropdownStyle}>
+                            <option value="">Select Tower...</option>
+                            {locations
+                              .filter(loc => 
+                                loc.name.toLowerCase().includes('zipgrow') || 
+                                loc.name.toLowerCase().includes('aeroponics')
+                              )
+                              .map(loc => (
+                                <option key={loc.id} value={loc.id}>{loc.name}</option>
+                              ))}
+                          </select>
+                        </div>
+                      )}
+
+                      <button onClick={() => removeBatch(b.id, b.crops?.name)} style={smallRemoveBtn}>Remove</button>
+                    </div>
+                    <button onClick={() => moveStatus(b)} style={{...nextBtn, background: b.status === 'packaging' ? '#2c3e50' : '#e8f5e9', color: b.status === 'packaging' ? 'white' : '#2e7d32'}}>
+                      {b.status === 'packaging' ? '🏁' : '⮕'}
+                    </button>
                   </div>
                 ))}
               </div>
@@ -179,15 +219,16 @@ function FarmDashboard() {
   );
 }
 
-// STYLES
-const cardStyle = { background: 'white', padding: '15px', borderRadius: '15px', border: '1px solid #eee', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' };
-const labelStyle = { margin: '0 0 12px 0', fontSize: '0.75rem', color: '#999', letterSpacing: '1px', fontWeight: 'bold' };
-const inputStyle = { width: '100%', padding: '12px', marginBottom: '12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '0.9rem' };
+const cardStyle = { background: 'white', padding: '15px', borderRadius: '15px', border: '1px solid #eee' };
+const labelStyle = { margin: '0 0 12px 0', fontSize: '0.75rem', color: '#999', fontWeight: 'bold' };
+const inputStyle = { width: '100%', padding: '12px', marginBottom: '12px', borderRadius: '8px', border: '1px solid #ddd' };
 const btnStyle = { width: '100%', padding: '12px', background: '#27ae60', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' };
 const stationBox = { padding: '12px', background: '#f9f9f9', borderRadius: '8px', textAlign: 'center' };
-const columnStyle = { flex: '0 0 130px', background: '#f8f9fa', borderRadius: '8px', minHeight: '120px' };
-const stageHeader = { padding: '6px', color: 'white', fontSize: '0.65rem', textAlign: 'center', fontWeight: 'bold', textTransform: 'uppercase' };
-const batchItem = { background: 'white', margin: '6px', padding: '10px', borderRadius: '6px', fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' };
-const nextBtn = { border: 'none', background: '#f0f0f0', borderRadius: '4px', cursor: 'pointer', padding: '4px 8px' };
+const columnStyle = { flex: '0 0 170px', background: '#f8f9fa', borderRadius: '8px', minHeight: '220px' };
+const stageHeader = { padding: '8px', color: 'white', fontSize: '0.7rem', textAlign: 'center', fontWeight: 'bold', borderRadius: '8px 8px 0 0' };
+const batchItem = { background: 'white', margin: '8px', padding: '12px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #f0f0f0' };
+const nextBtn = { border: 'none', borderRadius: '6px', cursor: 'pointer', padding: '6px 10px', fontWeight: 'bold' };
+const smallRemoveBtn = { background: 'none', border: 'none', color: '#ff4d4f', fontSize: '0.65rem', cursor: 'pointer', textDecoration: 'underline', padding: 0, textAlign: 'left', marginTop: '5px' };
+const smallDropdownStyle = { fontSize: '0.7rem', padding: '4px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '100%', backgroundColor: '#fff', marginTop: '2px' };
 
 export default FarmDashboard;
