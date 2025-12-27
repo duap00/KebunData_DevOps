@@ -15,16 +15,24 @@ function App() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
   useEffect(() => {
+    // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      
+      // Explicitly handle the sign out event
+      if (event === 'SIGNED_OUT') {
+        setSession(null);
+        navigate('/'); // Force redirect to public home page
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -36,9 +44,15 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // LOGOUT HANDLER
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    navigate('/');
+  };
+
   const isActive = (path) => location.pathname === path;
 
-  // ICON ONLY SIDEBAR STYLE
   const sidebarLinkStyle = (path) => ({
     display: 'flex', 
     justifyContent: isMobile ? 'flex-start' : 'center', 
@@ -54,7 +68,6 @@ function App() {
   return (
     <div className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       
-      {/* TOP BAR */}
       <header style={{ zIndex: 1100, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 20px', height: '70px', background: 'white', borderBottom: '1px solid #eee' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {isMobile && (
@@ -68,7 +81,7 @@ function App() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
            {session ? (
-             <button onClick={() => supabase.auth.signOut()} style={logoutBtnStyle}>LOGOUT</button>
+             <button onClick={handleLogout} style={logoutBtnStyle}>LOGOUT</button>
            ) : (
              <Link to="/login" style={loginBtnStyle}>LOGIN</Link>
            )}
@@ -77,14 +90,13 @@ function App() {
       </header>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* ICON SIDEBAR */}
         <nav style={{ 
           position: isMobile ? 'fixed' : 'relative',
           top: 0, left: 0, height: '100%', zIndex: 1050,
           transform: isMobile && !isOpen ? 'translateX(-100%)' : 'translateX(0)',
           transition: 'transform 0.3s ease',
           backgroundColor: '#2c4035',
-          width: isMobile ? '260px' : '70px', // Slim for desktop
+          width: isMobile ? '260px' : '70px',
         }}>
            <div style={{ marginTop: '20px' }}>
               <Link to="/" style={sidebarLinkStyle('/')} title="Home" onClick={() => isMobile && setIsOpen(false)}>
@@ -102,7 +114,6 @@ function App() {
            </div>
         </nav>
 
-        {/* MAIN CONTENT */}
         <main style={{ flex: 1, overflowY: 'auto', backgroundColor: '#f8fafc' }}>
           <Routes>
             <Route path="/" element={<HomePage />} />
