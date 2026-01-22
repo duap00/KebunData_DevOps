@@ -313,3 +313,8 @@ html, body {
   padding: 30px;
   overflow-y: auto;
 }
+.mesh-gradient {
+  background-color: #ffffff;
+  background-image: radial-gradient(at 0% 0%, hsla(142,76%,95%,1) 0, transparent 50%), 
+                    radial-gradient(at 100% 0%, hsla(160,84%,92%,1) 0, transparent 50%);
+}
